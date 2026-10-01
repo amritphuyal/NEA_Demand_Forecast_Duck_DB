@@ -1,0 +1,160 @@
+[
+  {
+    "id": "nea_ndor",
+    "name": "NEA Nepal Daily Operational Report (transd)",
+    "kind": "html_listing+pdf",
+    "urls": {
+      "listing": "https://transd.nea.org.np/en/category/daily-operational-reports-1?page={page}",
+      "detail_prefix": "https://transd.nea.org.np/detail/nepal-daily-operational-report-",
+      "pdf_example": "https://transd.nea.org.np/uploads/shares/Daily_op_reports/NDOR%202081_09_27.pdf"
+    },
+    "fetcher": "httpx, playwright fallback (F5 bot protection)",
+    "history": "2023-04-14 .. 2025-01-11 (BS 2080_01_01 .. 2081_09_27), series looks frozen",
+    "cadence": "daily (when published)",
+    "status": "verified",
+    "target_table": "silver.nea_daily",
+    "notes": "1-page text PDF: daily energy MWh (11 values) + peak MW table (time + 9 values). No per-plant or reservoir data."
+  },
+  {
+    "id": "nea_ndor_wayback",
+    "name": "Legacy NEA LDC NDOR PDFs via Wayback Machine",
+    "kind": "json_api+pdf",
+    "urls": {
+      "cdx": "https://web.archive.org/cdx/search/cdx?url={host}/admin/assets/uploads/ldc/&matchType=prefix&output=json&filter=statuscode:200&fl=timestamp,original",
+      "hosts": ["nea.org.np", "www.nea.org.np", "cms.nea.org.np"],
+      "snapshot": "https://web.archive.org/web/{timestamp}id_/{original}"
+    },
+    "fetcher": "httpx",
+    "history": "unknown, originals ~2079 BS onwards (now 404 on nea.org.np)",
+    "cadence": "one-off backfill",
+    "status": "needs_user_verification",
+    "target_table": "silver.nea_daily",
+    "notes": "Gap filler. transd rows win on date conflicts."
+  },
+  {
+    "id": "nea_monthly_reports",
+    "name": "NEA Monthly Operational Reports",
+    "kind": "html_listing+pdf",
+    "urls": {"listing": "https://transd.nea.org.np/category/monthly-operational-reports?page={page}"},
+    "fetcher": "httpx, playwright fallback",
+    "history": "~20 posts, BS 2080",
+    "cadence": "monthly",
+    "status": "verified",
+    "target_table": "silver.nea_document",
+    "notes": "Some titles end in 'rev1'. Tables parsed in Phase 2."
+  },
+  {
+    "id": "nea_yearly_reports",
+    "name": "NEA Yearly Operational Summary",
+    "kind": "html_listing+pdf",
+    "urls": {"listing": "https://transd.nea.org.np/en/category/yearly-operational-reports-1?page={page}"},
+    "fetcher": "httpx, playwright fallback",
+    "history": "1 post (2079/80)",
+    "cadence": "yearly",
+    "status": "verified",
+    "target_table": "silver.nea_document",
+    "notes": ""
+  },
+  {
+    "id": "nea_annual_reports",
+    "name": "NEA Annual Reports",
+    "kind": "html_listing+pdf",
+    "urls": {"listing": "https://nea.org.np/en/category/annual-reports?page={page}"},
+    "fetcher": "httpx, playwright fallback",
+    "history": "multi-year (4 listing pages), latest 2025/2026",
+    "cadence": "yearly",
+    "status": "verified",
+    "target_table": "silver.nea_document",
+    "notes": "Long monthly/annual peak demand + energy history. Converted to Markdown; tables parsed in Phase 2."
+  },
+  {
+    "id": "open_meteo_weather",
+    "name": "Open-Meteo Historical Weather (ERA5)",
+    "kind": "json_api",
+    "urls": {"api": "https://archive-api.open-meteo.com/v1/archive"},
+    "fetcher": "httpx",
+    "history": "1940..today-5d (we take 2010..)",
+    "cadence": "daily",
+    "status": "verified",
+    "target_table": "silver.weather_daily",
+    "notes": "Free, no key, non-commercial. CC BY 4.0.",
+    "points": [
+      {"id": "kathmandu", "lat": 27.70, "lon": 85.32, "terai": false},
+      {"id": "biratnagar", "lat": 26.45, "lon": 87.27, "terai": true},
+      {"id": "birgunj", "lat": 27.01, "lon": 84.88, "terai": true},
+      {"id": "bhairahawa", "lat": 27.50, "lon": 83.45, "terai": true},
+      {"id": "nepalgunj", "lat": 28.05, "lon": 81.62, "terai": true},
+      {"id": "dhangadhi", "lat": 28.70, "lon": 80.59, "terai": true}
+    ]
+  },
+  {
+    "id": "open_meteo_discharge",
+    "name": "Open-Meteo Flood API (GloFAS river discharge)",
+    "kind": "json_api",
+    "urls": {"api": "https://flood-api.open-meteo.com/v1/flood"},
+    "fetcher": "httpx",
+    "history": "1984..today (we take 2010..)",
+    "cadence": "daily",
+    "status": "needs_user_verification",
+    "target_table": "silver.river_discharge_daily",
+    "notes": "~5 km grid. Point coords approximate: verify each lands on the river cell (monsoon peak >> winter).",
+    "points": [
+      {"id": "kali_gandaki_a", "lat": 27.98, "lon": 83.58},
+      {"id": "trishuli", "lat": 27.92, "lon": 85.15},
+      {"id": "marsyangdi", "lat": 28.08, "lon": 84.43},
+      {"id": "upper_tamakoshi", "lat": 27.90, "lon": 86.21},
+      {"id": "kulekhani", "lat": 27.59, "lon": 85.15},
+      {"id": "sunkoshi", "lat": 27.76, "lon": 85.86},
+      {"id": "karnali_chisapani", "lat": 28.64, "lon": 81.29},
+      {"id": "koshi_chatara", "lat": 26.87, "lon": 87.16}
+    ]
+  },
+  {
+    "id": "dhm_river_watch",
+    "name": "DHM River Watch (realtime gauge levels)",
+    "kind": "html_embedded_json",
+    "urls": {"page": "https://www.dhm.gov.np/hydrology/river-watch"},
+    "fetcher": "httpx (from Nepal; geo-blocked abroad)",
+    "history": "latest reading only; history accumulates from our snapshots",
+    "cadence": "every 3h",
+    "status": "needs_user_verification",
+    "target_table": "silver.river_level_obs",
+    "notes": "Inline 'var coordinates = [...]' JSON, ~309 gauges, water level (m) not discharge."
+  },
+  {
+    "id": "dhm_manual",
+    "name": "DHM historical data (email request)",
+    "kind": "manual_csv",
+    "urls": {"site": "https://www.dhm.gov.np/"},
+    "fetcher": "manual",
+    "history": "requested 2010..present daily",
+    "cadence": "one-off",
+    "status": "requested",
+    "target_table": "silver.river_discharge_daily",
+    "notes": "See docs/outreach/dhm-data-request.md. Loader added in Phase 2 when data arrives."
+  },
+  {
+    "id": "grid_india_psp",
+    "name": "Grid-India NLDC daily PSP report (transnational exchange)",
+    "kind": "pdf",
+    "urls": {"example": "https://report.grid-india.in/ReportData/Daily%20Report/PSP%20Report/2023-2024/June%202023/07.06.23_NLDC_PSP.pdf"},
+    "fetcher": "httpx",
+    "history": "multi-year",
+    "cadence": "daily",
+    "status": "planned",
+    "target_table": "silver.india_exchange_daily",
+    "notes": "Post-2025 proxy for Nepal import/export when NDOR missing."
+  },
+  {
+    "id": "world_bank_gdp",
+    "name": "World Bank GDP (constant USD), Nepal",
+    "kind": "json_api",
+    "urls": {"api": "https://api.worldbank.org/v2/country/NPL/indicator/NY.GDP.MKTP.KD?format=json&per_page=100"},
+    "fetcher": "httpx",
+    "history": "1960..",
+    "cadence": "yearly",
+    "status": "planned",
+    "target_table": "silver.macro_yearly",
+    "notes": "Trend driver for seasonal/annual model."
+  }
+]

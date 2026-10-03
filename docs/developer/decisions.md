@@ -50,3 +50,4 @@ Architecture decisions (ADR) + change log. Every repo change appends a change-lo
 ## Change log
 
 - **2026-10-25** — Scaffold: deps (httpx, bs4, playwright, pdfplumber, pymupdf4llm, duckdb 2.0, nepali-datetime, holidays), `nea` CLI, `sources.json`, docs (blueprint, flow, data-sources, decisions, DHM email), Phase 1 plan. Removed `main.py`.
+- **2026-10-25** — Lakehouse: `lake.py` (connect/upsert/seen/log), `schema.sql` (bronze log + silver tables), `nea status`, `nea maintain` (merge_adjacent_files → expire_snapshots 30 d → cleanup_old_files). DuckDB 2.0: `Relation.fetchone()` removed → use `con.execute(...).fetchone()`. Upsert stages rows in a TEMP table outside the lake transaction (one writable catalog per transaction).

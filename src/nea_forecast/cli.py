@@ -1,8 +1,21 @@
 import argparse
 from collections.abc import Callable
 
-# name -> ingest(con) -> rows written. Each source module registers itself here.
+from nea_forecast.lake import connect
+
+# name -> ingest(con) -> rows written
 INGESTERS: dict[str, Callable] = {}
+
+
+def status(con) -> None:
+    tables = con.execute("SELECT table_schema||'.'||table_name FROM information_schema.tables "
+                         "WHERE table_catalog='lake' AND table_type='BASE TABLE' ORDER BY 1").fetchall()
+    for (t,) in tables:
+        cols = {c[0] for c in con.execute(f"DESCRIBE {t}").fetchall()}
+        rng = ", min(date), max(date)" if "date" in cols else ""
+        print(t, *con.execute(f"SELECT count(*){rng} FROM {t}").fetchone())
+    for row in con.execute("SELECT source, status, count(*) FROM bronze.ingest_log GROUP BY ALL ORDER BY ALL").fetchall():
+        print("  log", *row)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -19,8 +32,17 @@ def main(argv: list[str] | None = None) -> int:
         unknown = set(names) - set(INGESTERS)
         if unknown:
             ap.error(f"unknown sources: {sorted(unknown)}; known: {sorted(INGESTERS)}")
+        con = connect()
         for name in names:
-            print(f"{name}: {INGESTERS[name](None)} rows")
+            print(f"{name}: {INGESTERS[name](con)} rows")
+    elif args.cmd == "status":
+        status(connect())
+    elif args.cmd == "maintain":
+        con = connect()
+        con.execute("CALL ducklake_merge_adjacent_files('lake')")
+        con.execute("CALL ducklake_expire_snapshots('lake', older_than => now() - INTERVAL 30 DAY)")
+        con.execute("CALL ducklake_cleanup_old_files('lake', cleanup_all => true)")
+        print("maintained")
     return 0
 
 

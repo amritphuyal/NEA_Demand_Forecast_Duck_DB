@@ -12,9 +12,9 @@ Status: `verified` (checked live) · `needs_user_verification` · `requested` ·
   - **Peak Time (MW):** Peak Time, Generation, Import, Recorded Peak Availability, Export, Demand met at Peak Time, Interruption, Deficit, Peak Demand (Requirement), Net exchange with India.
 - Gotchas: pagination links are `http://` (force https); "Highlights" sidebar duplicates posts; some reports re-issued as "rev1"; F5 bot protection (curl blocked).
 
-## Legacy NDOR via Wayback — `needs_user_verification`
+## Legacy NDOR via Wayback — `unavailable`
 
-Old path `nea.org.np/admin/assets/uploads/ldc/NDOR {BS}.pdf` (also `www.`, `cms.`) now 404. Wayback CDX may hold copies. Result of the backfill recorded here after Task 6.
+Old path `nea.org.np/admin/assets/uploads/ldc/NDOR {BS}.pdf` (also `www.`, `cms.`) now 404. Checked 2026-10-25: Wayback CDX holds no NDOR copies. Dropped.
 
 ## NEA monthly / yearly / annual reports — `verified`
 

@@ -8,6 +8,7 @@ from nea_forecast import fetch as f
 def mock(monkeypatch):
     def install(handler):
         monkeypatch.setattr(f, "DELAY", 0)
+        monkeypatch.setattr(f, "BROWSER_DELAY", 0)
         monkeypatch.setattr(f, "_client", httpx.Client(transport=httpx.MockTransport(handler)))
     return install
 
@@ -18,6 +19,10 @@ def test_is_blocked_f5():
 
 def test_is_blocked_tspd():
     assert f.is_blocked(b"<script>window.TSPD_101='x'</script>", "text/html")
+
+
+def test_real_page_with_tspd_script_not_blocked():
+    assert not f.is_blocked(b"<html><script>TSPD</script>" + b"x" * 30000, "text/html")
 
 
 def test_pdf_not_blocked():
@@ -45,5 +50,16 @@ def test_fetch_forces_https(mock):
 
 def test_blocked_falls_back_to_browser(mock, monkeypatch):
     mock(lambda req: httpx.Response(200, html="<html>Request Rejected</html>"))
+    monkeypatch.setattr(f, "_browser_hosts", set())
     monkeypatch.setattr(f, "fetch_browser", lambda url: b"%PDF-1.4 real")
     assert f.fetch("https://x.test/a.pdf", expect_pdf=True) == b"%PDF-1.4 real"
+
+
+def test_blocked_host_sticks_to_browser(mock, monkeypatch):
+    hits = []
+    mock(lambda req: hits.append(1) or httpx.Response(200, html="<html>Request Rejected</html>"))
+    monkeypatch.setattr(f, "_browser_hosts", set())
+    monkeypatch.setattr(f, "fetch_browser", lambda url: b"%PDF-1.4 real")
+    f.fetch("https://x.test/a.pdf")
+    f.fetch("https://x.test/b.pdf")
+    assert len(hits) == 1  # second call skips httpx, no extra flagged hits

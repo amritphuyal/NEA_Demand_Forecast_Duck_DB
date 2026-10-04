@@ -12,7 +12,6 @@ nea maintain   merge small Parquet files, expire old snapshots
 | Source (`nea ingest …`) | Discover | Incremental rule | Raw file | Silver table (key) |
 |---|---|---|---|---|
 | `ndor` | transd listing `?page=1..N` → detail page → PDF link | stop at first listing page with zero unseen slugs | `data/raw/nea_ndor/{slug}.pdf` | `nea_daily` (`date`) |
-| `ndor_wayback` | Wayback CDX for `*/admin/assets/uploads/ldc/` | CDX list minus logged keys; skip dates already in `nea_daily` | `data/raw/nea_ndor_wayback/{key}.pdf` | `nea_daily` (`date`) |
 | `docs` | monthly / yearly / annual listings → detail → PDFs | listing minus logged keys | `data/raw/nea_docs/{category}/{slug}.pdf` + `.md` | `nea_document` (`key`) |
 | `weather` | Open-Meteo archive per point | from `max(date) − 10 d` (ERA5 lag), else 2010-01-01 | `data/raw/open_meteo/weather/…json` | `weather_daily` (`date, point`) |
 | `discharge` | Open-Meteo flood per point | same as weather | `data/raw/open_meteo/discharge/…json` | `river_discharge_daily` (`date, point`) |
@@ -27,7 +26,9 @@ Rules that hold everywhere:
 
 ## Schedule (laptop in Nepal)
 
+NEA fetches open a visible Chrome window (F5 blocks headless automation), so cron needs `DISPLAY` of the logged-in session.
+
 ```cron
-0 */3 * * * cd /path/to/repo && uv run nea ingest all >> data/ingest.log 2>&1
+0 */3 * * * cd /path/to/repo && DISPLAY=:0 uv run nea ingest all >> data/ingest.log 2>&1
 0 4 * * 0   cd /path/to/repo && uv run nea maintain   >> data/ingest.log 2>&1
 ```

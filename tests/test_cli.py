@@ -15,3 +15,13 @@ def test_sources_json_ids_unique():
     raw = json.loads(SOURCES_JSON.read_text())
     assert len({s["id"] for s in raw}) == len(raw) == len(load_sources())
     assert all("status" in s for s in raw)
+
+
+def test_ingest_continues_after_failure(monkeypatch, tmp_path, capsys):
+    from nea_forecast import cli
+    def boom(con): raise RuntimeError("site down")
+    monkeypatch.setattr(cli, "INGESTERS", {"a": boom, "b": lambda con: 3})
+    monkeypatch.setattr(cli, "connect", lambda: None)
+    assert cli.main(["ingest", "all"]) == 1
+    out = capsys.readouterr().out
+    assert "a: FAILED RuntimeError: site down" in out and "b: 3 rows" in out

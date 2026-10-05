@@ -1,11 +1,16 @@
 import argparse
 from collections.abc import Callable
 
-from nea_forecast import ndor
+from nea_forecast import dhm, ndor, open_meteo
 from nea_forecast.lake import connect
 
 # name -> ingest(con) -> rows written
-INGESTERS: dict[str, Callable] = {"ndor": ndor.ingest}
+INGESTERS: dict[str, Callable] = {
+    "ndor": ndor.ingest,
+    "weather": open_meteo.ingest_weather,
+    "discharge": open_meteo.ingest_discharge,
+    "dhm": dhm.ingest,
+}
 
 
 def status(con) -> None:
@@ -33,9 +38,14 @@ def main(argv: list[str] | None = None) -> int:
         unknown = set(names) - set(INGESTERS)
         if unknown:
             ap.error(f"unknown sources: {sorted(unknown)}; known: {sorted(INGESTERS)}")
-        con = connect()
+        con, failed = connect(), []
         for name in names:
-            print(f"{name}: {INGESTERS[name](con)} rows")
+            try:
+                print(f"{name}: {INGESTERS[name](con)} rows", flush=True)
+            except Exception as e:  # one dead source must not stop the others
+                print(f"{name}: FAILED {type(e).__name__}: {e}", flush=True)
+                failed.append(name)
+        return 1 if failed else 0
     elif args.cmd == "status":
         status(connect())
     elif args.cmd == "maintain":

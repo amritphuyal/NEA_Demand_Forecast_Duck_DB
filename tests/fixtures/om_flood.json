@@ -1,0 +1,2 @@
+{"latitude": 27.95, "longitude": 85.15, "daily_units": {"time": "iso8601", "river_discharge": "m³/s"},
+ "daily": {"time": ["2025-01-01", "2025-01-02"], "river_discharge": [42.5, null]}}

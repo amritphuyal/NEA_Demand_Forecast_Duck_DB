@@ -1,0 +1,5 @@
+{"latitude": 27.7, "longitude": 85.3, "timezone": "Asia/Kathmandu", "daily_units": {"time": "iso8601", "temperature_2m_max": "°C"},
+ "daily": {"time": ["2025-01-01", "2025-01-02", "2025-01-03"],
+           "temperature_2m_max": [17.1, 16.4, null],
+           "temperature_2m_min": [1.2, 0.8, null],
+           "precipitation_sum": [0.0, 0.3, null]}}

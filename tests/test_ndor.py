@@ -50,3 +50,68 @@ def test_all_zero_row_not_qa_ok():
 def test_garbage_raises(tmp_path):
     with pytest.raises(ParseError):
         parse_pdf(text_pdf(tmp_path / "x.pdf", "hello"))
+
+
+# --- discovery + ingest ---------------------------------------------------
+from nea_forecast import ndor
+from nea_forecast.fetch import NotFound
+from nea_forecast.lake import connect
+
+LISTING = (FIX / "ndor_listing_p1.html").read_text()
+GOOD = (FIX / "NDOR_2081_09_27.pdf").read_bytes()
+
+
+def test_parse_listing():
+    items = ndor.parse_listing(LISTING)
+    assert len(items) == 10 and len({s for s, _ in items}) == 10
+    assert all(u.startswith("https://transd.nea.org.np/detail/nepal-daily-operational-report-") for _, u in items)
+    assert items[0][0] == "nepal-daily-operational-report-2081-09-27"  # page order, newest first
+
+
+def test_parse_detail():
+    html = '<a href="https://transd.nea.org.np/uploads/shares/Daily_op_reports/NDOR%202081_09_27%20rev1.pdf">Open</a>'
+    assert ndor.parse_detail(html).endswith("rev1.pdf")
+
+
+def test_pdf_url_from_slug():
+    assert ndor.pdf_url("nepal-daily-operational-report-2081-09-27") == \
+        "https://transd.nea.org.np/uploads/shares/Daily_op_reports/NDOR%202081_09_27.pdf"
+    assert ndor.pdf_url("nepal-daily-operational-report-2081-09-27-rev1") is None
+
+
+def test_discover_stops_at_known(monkeypatch):
+    pages = {"1": LISTING, "2": ""}  # page 2 has nothing new -> stop, page 3 never fetched
+    monkeypatch.setattr(ndor, "fetch", lambda url: pages[url.rsplit("=", 1)[1]].encode())
+    items = ndor.parse_listing(LISTING)
+    known = {s for s, _ in items[3:]}
+    assert [s for s, _ in ndor.discover(known)] == [s for s, _ in items[:3]]
+
+
+def _stub(monkeypatch, tmp_path, items, bodies):
+    monkeypatch.setattr(ndor, "discover", lambda known: [i for i in items if i[0] not in known])
+    def fake_fetch(url, expect_pdf=False):
+        if url not in bodies:
+            raise NotFound(url)
+        return bodies[url]
+    monkeypatch.setattr(ndor, "fetch", fake_fetch)
+    return connect(tmp_path)
+
+
+def test_ingest_idempotent_and_parse_error_logged(tmp_path, monkeypatch):
+    good, bad = "nepal-daily-operational-report-2081-09-27", "nepal-daily-operational-report-2081-09-26"
+    bodies = {ndor.pdf_url(good): GOOD, ndor.pdf_url(bad): text_pdf(tmp_path / "g.pdf", "hello").read_bytes()}
+    con = _stub(monkeypatch, tmp_path, [(good, "d1"), (bad, "d2")], bodies)
+    assert ndor.ingest(con, tmp_path) == 1
+    assert ndor.ingest(con, tmp_path) == 0
+    assert con.execute("select count(*) from silver.nea_daily").fetchone()[0] == 1
+    assert con.execute(f"select status from bronze.ingest_log where key='{bad}'").fetchone()[0] == "parse_error"
+    assert (tmp_path / "raw/nea_ndor" / f"{good}.pdf").exists()
+
+
+def test_rev1_replaces_same_date(tmp_path, monkeypatch):
+    orig, rev = "nepal-daily-operational-report-2081-09-27", "nepal-daily-operational-report-2081-09-27-rev1"
+    rev_pdf = "https://transd.nea.org.np/uploads/shares/Daily_op_reports/NDOR%202081_09_27%20rev1.pdf"
+    bodies = {ndor.pdf_url(orig): GOOD, "detail-rev": f'<a href="{rev_pdf}">x</a>'.encode(), rev_pdf: GOOD}
+    con = _stub(monkeypatch, tmp_path, [(rev, "detail-rev"), (orig, "detail-orig")], bodies)  # newest first
+    assert ndor.ingest(con, tmp_path) == 2
+    assert con.execute("select count(*), any_value(source_url) from silver.nea_daily").fetchone() == (1, rev_pdf)

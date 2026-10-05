@@ -1,9 +1,20 @@
-"""NEA Nepal Daily Operational Report (NDOR): parse the 1-page PDF."""
+"""NEA Nepal Daily Operational Report (NDOR): discover on transd, download, parse, load."""
+import hashlib
 import re
 from datetime import date, time
 from pathlib import Path
 
 import pdfplumber
+
+from nea_forecast.fetch import Blocked, FetchError, NotFound, fetch
+from nea_forecast.lake import log, seen, upsert
+
+SOURCE = "nea_ndor"
+LISTING_URL = "https://transd.nea.org.np/en/category/daily-operational-reports-1?page={}"
+PDF_URL = "https://transd.nea.org.np/uploads/shares/Daily_op_reports/NDOR%20{}_{}_{}.pdf"
+LISTING_RE = re.compile(r'href="(https?://transd\.nea\.org\.np/detail/(nepal-daily-operational-report-[\w-]+))"')
+DETAIL_PDF_RE = re.compile(r'href="([^"]*Daily_op_reports/[^"]*\.pdf)"', re.I)
+SLUG_DATE_RE = re.compile(r"-(\d{4})-(\d{2})-(\d{2})$")
 
 ENERGY_COLS = ["nea_gen_mwh", "nea_sub_gen_mwh", "ipp_gen_mwh", "import_mwh", "total_available_mwh",
                "export_mwh", "net_met_mwh", "interruption_mwh", "deficit_mwh", "requirement_mwh",
@@ -54,3 +65,81 @@ def check_balance(r: dict, tol: float = 2.0) -> bool:
 
 def qa_ok(r: dict) -> bool:
     return check_balance(r) and r["requirement_mwh"] > 0
+
+
+def parse_listing(html: str) -> list[tuple[str, str]]:
+    """(slug, detail_url) in page order, deduped (sidebar repeats posts)."""
+    out = {}
+    for url, slug in LISTING_RE.findall(html):
+        out.setdefault(slug, "https://" + url.split("://", 1)[1])
+    return list(out.items())
+
+
+def parse_detail(html: str) -> str:
+    m = DETAIL_PDF_RE.search(html)
+    if not m:
+        raise ParseError("no NDOR pdf link on detail page")
+    return m.group(1).replace(" ", "%20")
+
+
+def pdf_url(slug: str) -> str | None:
+    """Plain slugs map straight to the PDF; odd ones (rev1 etc.) need the detail page."""
+    m = SLUG_DATE_RE.search(slug)
+    return PDF_URL.format(*m.groups()) if m else None
+
+
+def discover(known: set[str], max_pages: int = 80) -> list[tuple[str, str]]:
+    """Unseen posts, newest first. Stops at the first page with nothing new: ingest runs
+    oldest-first, so already-done posts are always the tail of the listing."""
+    out = []
+    for page in range(1, max_pages + 1):
+        items = parse_listing(fetch(LISTING_URL.format(page)).decode("utf-8", "replace"))
+        new = [i for i in items if i[0] not in known]
+        out += new
+        if not new:
+            break
+    return out
+
+
+def _download(slug: str, detail_url: str) -> tuple[str, bytes]:
+    url = pdf_url(slug)
+    if url:
+        try:
+            return url, fetch(url, expect_pdf=True)
+        except NotFound:
+            pass
+    url = parse_detail(fetch(detail_url).decode("utf-8", "replace"))
+    return url, fetch(url, expect_pdf=True)
+
+
+def ingest(con, root: Path = Path("data")) -> int:
+    raw = Path(root) / "raw" / SOURCE
+    raw.mkdir(parents=True, exist_ok=True)
+    n = 0
+    for slug, detail_url in reversed(discover(seen(con, SOURCE))):  # oldest first: newest rev wins
+        path = raw / f"{slug}.pdf"
+        url = pdf_url(slug) or detail_url
+        if not path.exists():
+            try:
+                url, body = _download(slug, detail_url)
+            except NotFound:
+                log(con, SOURCE, slug, url, "not_found")
+                continue
+            except Blocked:
+                raise  # stop the run: more hits only deepen the block
+            except (FetchError, ParseError) as e:
+                print(f"  {slug}: {e}")
+                log(con, SOURCE, slug, url, "fetch_error")
+                continue
+            path.write_bytes(body)
+        try:
+            row = parse_pdf(path)
+        except ParseError as e:
+            print(f"  {slug}: {e}")
+            log(con, SOURCE, slug, url, "parse_error")
+            continue
+        upsert(con, "silver.nea_daily", [{**row, "source": "transd", "source_url": url}], ("date",))
+        log(con, SOURCE, slug, url, "ok", hashlib.sha256(path.read_bytes()).hexdigest())
+        n += 1
+        print(f"  {slug}: {row['date']} qa_ok={row['qa_ok']}")
+    return n

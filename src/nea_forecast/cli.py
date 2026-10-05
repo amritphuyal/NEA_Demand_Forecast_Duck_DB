@@ -1,10 +1,11 @@
 import argparse
 from collections.abc import Callable
 
+from nea_forecast import ndor
 from nea_forecast.lake import connect
 
 # name -> ingest(con) -> rows written
-INGESTERS: dict[str, Callable] = {}
+INGESTERS: dict[str, Callable] = {"ndor": ndor.ingest}
 
 
 def status(con) -> None:

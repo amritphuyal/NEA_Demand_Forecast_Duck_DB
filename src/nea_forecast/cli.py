@@ -1,7 +1,7 @@
 import argparse
 from collections.abc import Callable
 
-from nea_forecast import dhm, ndor, open_meteo
+from nea_forecast import calendar, dhm, ndor, open_meteo
 from nea_forecast.lake import connect
 
 # name -> ingest(con) -> rows written
@@ -10,6 +10,7 @@ INGESTERS: dict[str, Callable] = {
     "weather": open_meteo.ingest_weather,
     "discharge": open_meteo.ingest_discharge,
     "dhm": dhm.ingest,
+    "calendar": calendar.ingest,
 }
 
 

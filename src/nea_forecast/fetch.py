@@ -1,4 +1,5 @@
 """Polite HTTP fetcher: httpx first, real Chrome (Playwright) only when F5 bot protection blocks us."""
+import base64
 import os
 import random
 import time
@@ -127,8 +128,9 @@ def fetch_browser(url: str) -> bytes:
     data = page.evaluate("""async u => {
         const r = await fetch(u, {credentials: 'include'});
         if (r.status === 404) return null;
-        return Array.from(new Uint8Array(await r.arrayBuffer()));
+        const blob = await r.blob();  // base64 data URL: cheap transfer even for 50 MB reports
+        return await new Promise(ok => { const f = new FileReader(); f.onload = () => ok(f.result); f.readAsDataURL(blob); });
     }""", url)
     if data is None:
         raise NotFound(url)
-    return bytes(data)
+    return base64.b64decode(data.split(",", 1)[1])

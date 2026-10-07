@@ -96,6 +96,7 @@ def discover(known: set[str], max_pages: int = 80) -> list[tuple[str, str]]:
         items = parse_listing(fetch(LISTING_URL.format(page)).decode("utf-8", "replace"))
         new = [i for i in items if i[0] not in known]
         out += new
+        print(f"  listing page {page}: {len(new)} new ({len(out)} total)", flush=True)
         if not new:
             break
     return out

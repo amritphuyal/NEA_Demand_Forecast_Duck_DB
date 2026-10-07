@@ -23,7 +23,7 @@ PEAK_COLS = ["peak_gen_mw", "peak_import_mw", "peak_availability_mw", "peak_expo
              "peak_interruption_mw", "peak_deficit_mw", "peak_demand_mw", "peak_net_exchange_india_mw"]
 
 NUM = r"-?[\d,]+(?:\.\d+)?"
-DATE_RE = re.compile(r"For Date:?\s*(\d{4})/(\d{2})/(\d{2})\s*\(\s*(\d{4})/(\d{2})/(\d{2})\s*\)")
+DATE_RE = re.compile(r"For Date:?\s*(\d{4})/(\d{1,2})/(\d{1,2})\s*\(\s*(\d{4})/(\d{1,2})/(\d{1,2})\s*\)")
 ENERGY_RE = re.compile(rf"^{NUM}(?:\s+{NUM}){{10}}$", re.M)
 PEAK_RE = re.compile(rf"^(\d{{1,2}}):(\d{{2}})((?:\s+{NUM}){{9}})$", re.M)
 
@@ -43,7 +43,7 @@ def parse_pdf(path: Path) -> dict:
     if not (d and e and p):
         raise ParseError(f"{path}: date={bool(d)} energy={bool(e)} peak={bool(p)}")
     by, bm, bd, ay, am, ad = d.groups()
-    row = {"date": date(int(ay), int(am), int(ad)), "bs_date": f"{by}-{bm}-{bd}",
+    row = {"date": date(int(ay), int(am), int(ad)), "bs_date": f"{by}-{int(bm):02d}-{int(bd):02d}",
            **dict(zip(ENERGY_COLS, _nums(e.group()))),
            "peak_time": time(int(p.group(1)), int(p.group(2))),
            **dict(zip(PEAK_COLS, _nums(p.group(3))))}

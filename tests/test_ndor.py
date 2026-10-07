@@ -115,3 +115,8 @@ def test_rev1_replaces_same_date(tmp_path, monkeypatch):
     con = _stub(monkeypatch, tmp_path, [(rev, "detail-rev"), (orig, "detail-orig")], bodies)  # newest first
     assert ndor.ingest(con, tmp_path) == 2
     assert con.execute("select count(*), any_value(source_url) from silver.nea_daily").fetchone() == (1, rev_pdf)
+
+
+def test_date_header_without_zero_padding():
+    m = ndor.DATE_RE.search("For Date: 2080/01/4 ( 2023/05/1 )")
+    assert m and m.groups() == ("2080", "01", "4", "2023", "05", "1")

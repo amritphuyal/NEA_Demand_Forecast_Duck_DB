@@ -63,3 +63,18 @@ def test_blocked_host_sticks_to_browser(mock, monkeypatch):
     f.fetch("https://x.test/a.pdf")
     f.fetch("https://x.test/b.pdf")
     assert len(hits) == 1  # second call skips httpx, no extra flagged hits
+
+
+def test_fetch_many_browser_batches(monkeypatch):
+    monkeypatch.setattr(f, "BROWSER_DELAY", 0)
+    monkeypatch.setattr(f, "BATCH", 2)
+    monkeypatch.setattr(f, "_browser_hosts", {"x.test"})
+    calls = []
+    def page_fetch(urls):
+        calls.append(urls)
+        return [None if u.endswith("missing.pdf") else b"%PDF-1.4 " + u.encode() for u in urls]
+    monkeypatch.setattr(f, "_page_fetch", page_fetch)
+    out = f.fetch_many(["http://x.test/a.pdf", "https://x.test/missing.pdf", "https://x.test/c.pdf"], expect_pdf=True)
+    assert [len(c) for c in calls] == [2, 1]  # batched
+    assert out[0] == b"%PDF-1.4 https://x.test/a.pdf"
+    assert isinstance(out[1], f.NotFound) and out[2].startswith(b"%PDF")

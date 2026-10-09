@@ -81,7 +81,7 @@ def test_pdf_url_from_slug():
 
 def test_discover_stops_at_known(monkeypatch):
     pages = {"1": LISTING, "2": ""}  # page 2 has nothing new -> stop, page 3 never fetched
-    monkeypatch.setattr(ndor, "fetch", lambda url: pages[url.rsplit("=", 1)[1]].encode())
+    monkeypatch.setattr(ndor, "fetch_many", lambda urls, expect_pdf=False: [pages[u.rsplit("=", 1)[1]].encode() for u in urls[:2]])
     items = ndor.parse_listing(LISTING)
     known = {s for s, _ in items[3:]}
     assert [s for s, _ in ndor.discover(known)] == [s for s, _ in items[:3]]
@@ -94,6 +94,15 @@ def _stub(monkeypatch, tmp_path, items, bodies):
             raise NotFound(url)
         return bodies[url]
     monkeypatch.setattr(ndor, "fetch", fake_fetch)
+    def fake_many(urls, expect_pdf=False):
+        out = []
+        for u in urls:
+            try:
+                out.append(fake_fetch(u, expect_pdf))
+            except NotFound as e:
+                out.append(e)
+        return out
+    monkeypatch.setattr(ndor, "fetch_many", fake_many)
     return connect(tmp_path)
 
 

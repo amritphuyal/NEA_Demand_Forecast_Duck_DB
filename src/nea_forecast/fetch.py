@@ -15,6 +15,7 @@ HEADERS = {"User-Agent": UA, "Accept": "text/html,application/xhtml+xml,applicat
 DELAY = 2.0  # seconds between requests to the same host
 RETRIES = 3
 BROWSER_DELAY = 6.0  # + up to 66% jitter; F5 flags fast navigation
+BATCH = 4  # parallel in-page fetches per browser round; F5 blocked bursts before, keep small
 BLOCK_MARKERS = (b"Request Rejected", b"blocked by our security policy")
 # F5 injects its TSPD script into real pages too; only a small TSPD page is the challenge itself
 CHALLENGE_MAX = 20000
@@ -55,9 +56,12 @@ def is_blocked(body: bytes, content_type: str) -> bool:
     return any(m in head for m in BLOCK_MARKERS) or (len(body) < CHALLENGE_MAX and b"TSPD" in body)
 
 
+def _https(url: str) -> str:
+    return "https://" + url[7:] if url.startswith("http://") else url
+
+
 def fetch(url: str, expect_pdf: bool = False) -> bytes:
-    if url.startswith("http://"):
-        url = "https://" + url[7:]
+    url = _https(url)
     host = urlsplit(url).netloc
     if host in _browser_hosts:
         return _check(url, _browser_fetch(host, url), expect_pdf)
@@ -87,9 +91,13 @@ def fetch(url: str, expect_pdf: bool = False) -> bytes:
     raise FetchError(url)
 
 
-def _browser_fetch(host: str, url: str) -> bytes:
+def _browser_throttle(host: str) -> None:
     _last[host] = _last.get(host, 0) + BROWSER_DELAY - DELAY + random.uniform(0, BROWSER_DELAY * 0.66)
     _throttle(host)
+
+
+def _browser_fetch(host: str, url: str) -> bytes:
+    _browser_throttle(host)
     return fetch_browser(url)
 
 
@@ -101,9 +109,30 @@ def _check(url: str, body: bytes, expect_pdf: bool) -> bytes:
     return body
 
 
-def fetch_browser(url: str) -> bytes:
-    """HTML: real page navigation (runs F5's JS check). Binary: in-page fetch() from the same
-    origin, so F5's patched fetch attaches its tokens."""
+def _safe(fn, *args):
+    try:
+        return fn(*args)
+    except FetchError as e:
+        return e
+
+
+def fetch_many(urls: list[str], expect_pdf: bool = False) -> list[bytes | FetchError]:
+    """Same as fetch() per url, but browser hosts get BATCH parallel in-page fetches per throttled
+    round. Errors are returned in place, not raised."""
+    out = []
+    for i in range(0, len(urls), BATCH):
+        chunk = [_https(u) for u in urls[i:i + BATCH]]
+        host = urlsplit(chunk[0]).netloc
+        if host not in _browser_hosts:  # first call discovers the block; httpx hosts aren't the bottleneck
+            out += [_safe(fetch, u, expect_pdf) for u in chunk]
+            continue
+        _browser_throttle(host)
+        for u, body in zip(chunk, _page_fetch(chunk)):
+            out.append(NotFound(u) if body is None else _safe(_check, u, body, expect_pdf))
+    return out
+
+
+def _page():
     global _browser
     if _browser is None:
         from playwright.sync_api import sync_playwright
@@ -113,9 +142,29 @@ def fetch_browser(url: str) -> bytes:
             # F5 rejects pages when navigator.webdriver / automation flags are visible
             ignore_default_args=["--enable-automation"], args=["--disable-blink-features=AutomationControlled"])
         _browser = (pw, ctx, ctx.pages[0] if ctx.pages else ctx.new_page())
-    page = _browser[2]
-    parts = urlsplit(url)
+    return _browser[2]
+
+
+def _page_fetch(urls: list[str]) -> list[bytes | None]:
+    """Parallel fetch() inside the page (same origin), so F5's patched fetch attaches its tokens.
+    None = 404."""
+    page = _page()
+    parts = urlsplit(urls[0])
+    if not page.url.startswith(f"{parts.scheme}://{parts.netloc}"):
+        page.goto(f"{parts.scheme}://{parts.netloc}/", wait_until="networkidle", timeout=90000)
+    datas = page.evaluate("""async urls => Promise.all(urls.map(async u => {
+        const r = await fetch(u, {credentials: 'include'});
+        if (r.status === 404) return null;
+        const blob = await r.blob();  // base64 data URL: cheap transfer even for 50 MB reports
+        return await new Promise(ok => { const f = new FileReader(); f.onload = () => ok(f.result); f.readAsDataURL(blob); });
+    }))""", urls)
+    return [None if d is None else base64.b64decode(d.split(",", 1)[1]) for d in datas]
+
+
+def fetch_browser(url: str) -> bytes:
+    """HTML: real page navigation (runs F5's JS check). Binary: in-page fetch()."""
     if not url.lower().endswith(".pdf"):
+        page = _page()
         page.goto(url, wait_until="networkidle", timeout=90000)
         for _ in range(20):  # challenge page reloads itself once solved
             html = page.content().encode()
@@ -123,14 +172,7 @@ def fetch_browser(url: str) -> bytes:
                 break
             page.wait_for_timeout(1000)
         return html
-    if not page.url.startswith(f"{parts.scheme}://{parts.netloc}"):
-        page.goto(f"{parts.scheme}://{parts.netloc}/", wait_until="networkidle", timeout=90000)
-    data = page.evaluate("""async u => {
-        const r = await fetch(u, {credentials: 'include'});
-        if (r.status === 404) return null;
-        const blob = await r.blob();  // base64 data URL: cheap transfer even for 50 MB reports
-        return await new Promise(ok => { const f = new FileReader(); f.onload = () => ok(f.result); f.readAsDataURL(blob); });
-    }""", url)
-    if data is None:
+    body = _page_fetch([url])[0]
+    if body is None:
         raise NotFound(url)
-    return base64.b64decode(data.split(",", 1)[1])
+    return body

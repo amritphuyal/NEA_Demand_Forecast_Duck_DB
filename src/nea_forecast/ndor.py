@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pdfplumber
 
-from nea_forecast.fetch import Blocked, FetchError, NotFound, fetch
+from nea_forecast.fetch import BATCH, Blocked, FetchError, NotFound, fetch, fetch_many
 from nea_forecast.lake import log, seen, upsert
 
 SOURCE = "nea_ndor"
@@ -92,23 +92,20 @@ def discover(known: set[str], max_pages: int = 80) -> list[tuple[str, str]]:
     """Unseen posts, newest first. Stops at the first page with nothing new: ingest runs
     oldest-first, so already-done posts are always the tail of the listing."""
     out = []
-    for page in range(1, max_pages + 1):
-        items = parse_listing(fetch(LISTING_URL.format(page)).decode("utf-8", "replace"))
-        new = [i for i in items if i[0] not in known]
-        out += new
-        print(f"  listing page {page}: {len(new)} new ({len(out)} total)", flush=True)
-        if not new:
-            break
+    for start in range(1, max_pages + 1, BATCH):
+        pages = list(range(start, min(start + BATCH, max_pages + 1)))
+        for page, body in zip(pages, fetch_many([LISTING_URL.format(p) for p in pages])):
+            if isinstance(body, Exception):
+                raise body
+            new = [i for i in parse_listing(body.decode("utf-8", "replace")) if i[0] not in known]
+            out += new
+            print(f"  listing page {page}: {len(new)} new ({len(out)} total)", flush=True)
+            if not new:
+                return out
     return out
 
 
-def _download(slug: str, detail_url: str) -> tuple[str, bytes]:
-    url = pdf_url(slug)
-    if url:
-        try:
-            return url, fetch(url, expect_pdf=True)
-        except NotFound:
-            pass
+def _download_detail(detail_url: str) -> tuple[str, bytes]:
     url = parse_detail(fetch(detail_url).decode("utf-8", "replace"))
     return url, fetch(url, expect_pdf=True)
 
@@ -116,31 +113,40 @@ def _download(slug: str, detail_url: str) -> tuple[str, bytes]:
 def ingest(con, root: Path = Path("data")) -> int:
     raw = Path(root) / "raw" / SOURCE
     raw.mkdir(parents=True, exist_ok=True)
+    todo = list(reversed(discover(seen(con, SOURCE))))  # oldest first: newest rev wins
     n = 0
-    for slug, detail_url in reversed(discover(seen(con, SOURCE))):  # oldest first: newest rev wins
-        path = raw / f"{slug}.pdf"
-        url = pdf_url(slug) or detail_url
-        if not path.exists():
+    for i in range(0, len(todo), BATCH):
+        chunk = todo[i:i + BATCH]
+        direct = [s for s, _ in chunk if pdf_url(s) and not (raw / f"{s}.pdf").exists()]
+        got = dict(zip(direct, fetch_many([pdf_url(s) for s in direct], expect_pdf=True)))
+        for slug, detail_url in chunk:
+            path = raw / f"{slug}.pdf"
+            url = pdf_url(slug) or detail_url
+            if not path.exists():
+                body = got.get(slug)
+                try:
+                    if body is None or isinstance(body, NotFound):  # odd slug or moved file: detail page
+                        url, body = _download_detail(detail_url)
+                    elif isinstance(body, Exception):
+                        raise body
+                except NotFound:
+                    log(con, SOURCE, slug, url, "not_found")
+                    continue
+                except Blocked:
+                    raise  # stop the run: more hits only deepen the block
+                except (FetchError, ParseError) as e:
+                    print(f"  {slug}: {e}")
+                    log(con, SOURCE, slug, url, "fetch_error")
+                    continue
+                path.write_bytes(body)
             try:
-                url, body = _download(slug, detail_url)
-            except NotFound:
-                log(con, SOURCE, slug, url, "not_found")
-                continue
-            except Blocked:
-                raise  # stop the run: more hits only deepen the block
-            except (FetchError, ParseError) as e:
+                row = parse_pdf(path)
+            except ParseError as e:
                 print(f"  {slug}: {e}")
-                log(con, SOURCE, slug, url, "fetch_error")
+                log(con, SOURCE, slug, url, "parse_error")
                 continue
-            path.write_bytes(body)
-        try:
-            row = parse_pdf(path)
-        except ParseError as e:
-            print(f"  {slug}: {e}")
-            log(con, SOURCE, slug, url, "parse_error")
-            continue
-        upsert(con, "silver.nea_daily", [{**row, "source": "transd", "source_url": url}], ("date",))
-        log(con, SOURCE, slug, url, "ok", hashlib.sha256(path.read_bytes()).hexdigest())
-        n += 1
-        print(f"  {slug}: {row['date']} qa_ok={row['qa_ok']}")
+            upsert(con, "silver.nea_daily", [{**row, "source": "transd", "source_url": url}], ("date",))
+            log(con, SOURCE, slug, url, "ok", hashlib.sha256(path.read_bytes()).hexdigest())
+            n += 1
+            print(f"  {slug}: {row['date']} qa_ok={row['qa_ok']}", flush=True)
     return n

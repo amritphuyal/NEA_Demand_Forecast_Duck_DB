@@ -67,10 +67,10 @@ def test_blocked_host_sticks_to_browser(mock, monkeypatch):
 
 def test_fetch_many_browser_batches(monkeypatch):
     monkeypatch.setattr(f, "BROWSER_DELAY", 0)
-    monkeypatch.setattr(f, "BATCH", 2)
+    monkeypatch.setattr(f, "_batch", 2)
     monkeypatch.setattr(f, "_browser_hosts", {"x.test"})
     calls = []
-    def page_fetch(urls):
+    def page_fetch(urls, reset=None):
         calls.append(urls)
         return [None if u.endswith("missing.pdf") else b"%PDF-1.4 " + u.encode() for u in urls]
     monkeypatch.setattr(f, "_page_fetch", page_fetch)
@@ -78,3 +78,50 @@ def test_fetch_many_browser_batches(monkeypatch):
     assert [len(c) for c in calls] == [2, 1]  # batched
     assert out[0] == b"%PDF-1.4 https://x.test/a.pdf"
     assert isinstance(out[1], f.NotFound) and out[2].startswith(b"%PDF")
+
+
+def test_fetch_many_backs_off_and_halves_batch(monkeypatch):
+    monkeypatch.setattr(f, "BROWSER_DELAY", 0)
+    monkeypatch.setattr(f, "BACKOFF", 0)
+    monkeypatch.setattr(f, "_batch", 4)
+    monkeypatch.setattr(f, "_browser_hosts", {"x.test"})
+    rounds = []
+    def page_fetch(urls, reset=None):
+        if reset:
+            rounds.append("reset")
+            return []
+        rounds.append(len(urls))
+        if len(rounds) == 1:  # first round rejected by F5
+            return [b"<html>Request Rejected</html>"] * len(urls)
+        return [b"%PDF ok"] * len(urls)
+    monkeypatch.setattr(f, "_page_fetch", page_fetch)
+    out = f.fetch_many([f"https://x.test/{i}.pdf" for i in range(4)], expect_pdf=True)
+    assert out == [b"%PDF ok"] * 4
+    assert rounds == [4, "reset", 2, 2] and f._batch == 2
+
+
+def test_fetch_many_gives_up_after_max_blocks(monkeypatch):
+    monkeypatch.setattr(f, "BROWSER_DELAY", 0)
+    monkeypatch.setattr(f, "BACKOFF", 0)
+    monkeypatch.setattr(f, "_batch", 4)
+    monkeypatch.setattr(f, "_browser_hosts", {"x.test"})
+    monkeypatch.setattr(f, "_page_fetch", lambda urls, reset=None: [] if reset else [f.Blocked("429")] * len(urls))
+    with pytest.raises(f.Blocked):
+        f.fetch_many(["https://x.test/a.pdf"])
+
+
+def test_fetch_many_relaunches_after_crash(monkeypatch):
+    monkeypatch.setattr(f, "BROWSER_DELAY", 0)
+    monkeypatch.setattr(f, "BACKOFF", 0)
+    monkeypatch.setattr(f, "_batch", 2)
+    monkeypatch.setattr(f, "_browser_hosts", {"x.test"})
+    closed, calls = [], []
+    monkeypatch.setattr(f, "_close_browser", lambda: closed.append(1))
+    def page_fetch(urls, reset=None):
+        calls.append(reset)
+        if len(calls) == 1:
+            raise RuntimeError("Target page, context or browser has been closed")
+        return [] if reset else [b"%PDF ok"] * len(urls)
+    monkeypatch.setattr(f, "_page_fetch", page_fetch)
+    assert f.fetch_many(["https://x.test/a.pdf"], expect_pdf=True) == [b"%PDF ok"]
+    assert closed == [1]

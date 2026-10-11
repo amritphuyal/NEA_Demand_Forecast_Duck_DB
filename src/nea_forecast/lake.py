@@ -51,5 +51,11 @@ def seen(con: duckdb.DuckDBPyConnection, source: str) -> set[str]:
 
 def log(con: duckdb.DuckDBPyConnection, source: str, key: str, url: str, status: str,
         sha256: str | None = None) -> None:
-    upsert(con, "bronze.ingest_log", [{"source": source, "key": key, "url": url, "status": status,
-                                       "sha256": sha256, "fetched_at": datetime.now()}], ("source", "key"))
+    log_many(con, source, [(key, url, status, sha256)])
+
+
+def log_many(con: duckdb.DuckDBPyConnection, source: str, entries: list[tuple]) -> None:
+    """entries: (key, url, status, sha256). One commit for the lot: each commit is a lake snapshot."""
+    now = datetime.now()
+    upsert(con, "bronze.ingest_log", [{"source": source, "key": k, "url": u, "status": st, "sha256": sha,
+                                       "fetched_at": now} for k, u, st, sha in entries], ("source", "key"))

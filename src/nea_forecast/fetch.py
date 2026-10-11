@@ -14,15 +14,15 @@ HEADERS = {"User-Agent": UA, "Accept": "text/html,application/xhtml+xml,applicat
            "Accept-Language": "en-US,en;q=0.9"}
 DELAY = 2.0  # seconds between requests to the same host
 RETRIES = 3
-BROWSER_DELAY = 6.0  # + up to 66% jitter; F5 flags fast navigation
+BROWSER_DELAY = 2.0  # + up to 66% jitter between browser rounds (measured: 20 PDFs/round in ~1 s)
 BATCH = int(os.environ.get("NEA_BATCH", 20))  # parallel in-page fetches per browser round
 BACKOFF = 30.0  # seconds after a blocked round; doubles each consecutive block
 MAX_BLOCKS = 4  # consecutive blocked rounds before giving up (re-run resumes)
 BLOCK_MARKERS = (b"Request Rejected", b"blocked by our security policy")
 # F5 injects its TSPD script into real pages too; only a small TSPD page is the challenge itself
 CHALLENGE_MAX = 20000
-# Headed real Chrome passes F5 fingerprinting; NEA_HEADLESS=1 for unattended cron (may get blocked).
-HEADLESS = os.environ.get("NEA_HEADLESS") == "1"
+# Real Chrome with automation flags masked passes F5 headless too; NEA_HEADED=1 shows the window.
+HEADLESS = os.environ.get("NEA_HEADED") != "1"
 PROFILE = Path("data/browser-profile")  # persistent cookies across runs
 
 

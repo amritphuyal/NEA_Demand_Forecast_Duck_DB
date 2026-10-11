@@ -7,7 +7,7 @@ from pathlib import Path
 import pdfplumber
 
 from nea_forecast.fetch import BATCH, Blocked, FetchError, NotFound, fetch, fetch_many
-from nea_forecast.lake import log, seen, upsert
+from nea_forecast.lake import log_many, seen, upsert
 
 SOURCE = "nea_ndor"
 LISTING_URL = "https://transd.nea.org.np/en/category/daily-operational-reports-1?page={}"
@@ -119,6 +119,7 @@ def ingest(con, root: Path = Path("data")) -> int:
         chunk = todo[i:i + BATCH]
         direct = [s for s, _ in chunk if pdf_url(s) and not (raw / f"{s}.pdf").exists()]
         got = dict(zip(direct, fetch_many([pdf_url(s) for s in direct], expect_pdf=True)))
+        rows, logs = [], []
         for slug, detail_url in chunk:
             path = raw / f"{slug}.pdf"
             url = pdf_url(slug) or detail_url
@@ -130,23 +131,28 @@ def ingest(con, root: Path = Path("data")) -> int:
                     elif isinstance(body, Exception):
                         raise body
                 except NotFound:
-                    log(con, SOURCE, slug, url, "not_found")
+                    logs.append((slug, url, "not_found", None))
                     continue
                 except Blocked:
+                    log_many(con, SOURCE, logs) if logs else None
                     raise  # stop the run: more hits only deepen the block
                 except (FetchError, ParseError) as e:
                     print(f"  {slug}: {e}")
-                    log(con, SOURCE, slug, url, "fetch_error")
+                    logs.append((slug, url, "fetch_error", None))
                     continue
                 path.write_bytes(body)
             try:
                 row = parse_pdf(path)
             except ParseError as e:
                 print(f"  {slug}: {e}")
-                log(con, SOURCE, slug, url, "parse_error")
+                logs.append((slug, url, "parse_error", None))
                 continue
-            upsert(con, "silver.nea_daily", [{**row, "source": "transd", "source_url": url}], ("date",))
-            log(con, SOURCE, slug, url, "ok", hashlib.sha256(path.read_bytes()).hexdigest())
-            n += 1
+            rows.append({**row, "source": "transd", "source_url": url})
+            logs.append((slug, url, "ok", hashlib.sha256(path.read_bytes()).hexdigest()))
             print(f"  {slug}: {row['date']} qa_ok={row['qa_ok']}", flush=True)
+        # one commit per round; rows before logs so a crash between them only means a re-parse
+        upsert(con, "silver.nea_daily", rows, ("date",))
+        n += len(rows)  # reports ingested (a re-issued report shares its date row)
+        if logs:
+            log_many(con, SOURCE, logs)
     return n

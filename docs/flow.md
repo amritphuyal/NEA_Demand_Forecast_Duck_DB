@@ -26,9 +26,9 @@ Rules that hold everywhere:
 
 ## Schedule (laptop in Nepal)
 
-NEA fetches open a visible Chrome window (F5 blocks headless automation), so cron needs `DISPLAY` of the logged-in session.
+NEA fetches use headless real Chrome (automation flags masked). If F5 starts blocking, set `NEA_HEADED=1` (needs `DISPLAY` of the logged-in session).
 
 ```cron
-0 */3 * * * cd /path/to/repo && DISPLAY=:0 uv run nea ingest all >> data/ingest.log 2>&1
+0 */3 * * * cd /path/to/repo && uv run nea ingest all >> data/ingest.log 2>&1
 0 4 * * 0   cd /path/to/repo && uv run nea maintain   >> data/ingest.log 2>&1
 ```

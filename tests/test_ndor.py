@@ -68,6 +68,16 @@ def test_parse_listing():
     assert items[0][0] == "nepal-daily-operational-report-2081-09-27"  # page order, newest first
 
 
+def test_parse_detail_r1_in_press_release():
+    html = '<a href="https://transd.nea.org.np/uploads/shares/press_release/NDOR%202081_08_19.pdf">Open</a>'
+    assert ndor.parse_detail(html).endswith("press_release/NDOR%202081_08_19.pdf")
+
+
+def test_parse_detail_html_only_is_not_found():
+    with pytest.raises(NotFound):
+        ndor.parse_detail('<a href="https://transd.nea.org.np/uploads/shares/Daily_op_reports/NDOR%202080_06_07.html">x</a>')
+
+
 def test_parse_detail():
     html = '<a href="https://transd.nea.org.np/uploads/shares/Daily_op_reports/NDOR%202081_09_27%20rev1.pdf">Open</a>'
     assert ndor.parse_detail(html).endswith("rev1.pdf")

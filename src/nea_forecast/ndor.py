@@ -13,7 +13,8 @@ SOURCE = "nea_ndor"
 LISTING_URL = "https://transd.nea.org.np/en/category/daily-operational-reports-1?page={}"
 PDF_URL = "https://transd.nea.org.np/uploads/shares/Daily_op_reports/NDOR%20{}_{}_{}.pdf"
 LISTING_RE = re.compile(r'href="(https?://transd\.nea\.org\.np/detail/(nepal-daily-operational-report-[\w-]+))"')
-DETAIL_PDF_RE = re.compile(r'href="([^"]*Daily_op_reports/[^"]*\.pdf)"', re.I)
+DETAIL_PDF_RE = re.compile(r'href="([^"]*/uploads/[^"]*NDOR[^"]*\.pdf)"', re.I)  # r1 re-issues live in press_release/
+DETAIL_HTML_RE = re.compile(r'/uploads/[^"]*NDOR[^"]*\.html', re.I)  # a few days were posted as .html, served "Access Restricted"
 SLUG_DATE_RE = re.compile(r"-(\d{4})-(\d{2})-(\d{2})$")
 
 ENERGY_COLS = ["nea_gen_mwh", "nea_sub_gen_mwh", "ipp_gen_mwh", "import_mwh", "total_available_mwh",
@@ -77,6 +78,8 @@ def parse_listing(html: str) -> list[tuple[str, str]]:
 
 def parse_detail(html: str) -> str:
     m = DETAIL_PDF_RE.search(html)
+    if not m and DETAIL_HTML_RE.search(html):
+        raise NotFound("report posted as .html only (NEA serves Access Restricted): known gap")
     if not m:
         raise ParseError("no NDOR pdf link on detail page")
     return m.group(1).replace(" ", "%20")

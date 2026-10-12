@@ -125,3 +125,11 @@ def test_fetch_many_relaunches_after_crash(monkeypatch):
     monkeypatch.setattr(f, "_page_fetch", page_fetch)
     assert f.fetch_many(["https://x.test/a.pdf"], expect_pdf=True) == [b"%PDF ok"]
     assert closed == [1]
+
+
+def test_fetch_429_waits_retry_after(mock, monkeypatch):
+    replies = iter([httpx.Response(429, headers={"retry-after": "7"}), httpx.Response(200, content=b"ok")])
+    mock(lambda req: next(replies))
+    slept = []
+    monkeypatch.setattr(f.time, "sleep", slept.append)
+    assert f.fetch("https://x.test/a") == b"ok" and 7.0 in slept

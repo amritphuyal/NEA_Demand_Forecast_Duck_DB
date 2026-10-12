@@ -82,7 +82,9 @@ def fetch(url: str, expect_pdf: bool = False) -> bytes:
         if r.status_code == 429 or r.status_code >= 500:
             if attempt == RETRIES - 1:
                 raise FetchError(f"{url}: HTTP {r.status_code}")
-            time.sleep(2 ** attempt * DELAY)
+            # rate limits (Open-Meteo: per-minute quota) need a real pause, not seconds
+            wait = float(r.headers.get("retry-after", 60)) if r.status_code == 429 else 2 ** attempt * DELAY
+            time.sleep(wait)
             continue
         body = r.content
         if is_blocked(body, r.headers.get("content-type", "")):

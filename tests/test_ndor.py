@@ -139,3 +139,14 @@ def test_rev1_replaces_same_date(tmp_path, monkeypatch):
 def test_date_header_without_zero_padding():
     m = ndor.DATE_RE.search("For Date: 2080/01/4 ( 2023/05/1 )")
     assert m and m.groups() == ("2080", "01", "4", "2023", "05", "1")
+
+
+def test_ingest_retries_failed_keys_not_in_listing(tmp_path, monkeypatch):
+    slug = "nepal-daily-operational-report-2081-08-19-r1"
+    pdf = "https://transd.nea.org.np/uploads/shares/press_release/NDOR%202081_08_19.pdf"
+    bodies = {ndor.DETAIL_URL + slug: f'<a href="{pdf}">x</a>'.encode(), pdf: GOOD}
+    con = _stub(monkeypatch, tmp_path, [], bodies)  # listing has nothing new
+    from nea_forecast.lake import log
+    log(con, ndor.SOURCE, slug, ndor.DETAIL_URL + slug, "fetch_error")
+    assert ndor.ingest(con, tmp_path) == 1
+    assert con.execute(f"select status from bronze.ingest_log where key='{slug}'").fetchone()[0] == "ok"

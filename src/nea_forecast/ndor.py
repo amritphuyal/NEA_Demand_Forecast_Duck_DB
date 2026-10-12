@@ -10,6 +10,7 @@ from nea_forecast.fetch import BATCH, Blocked, FetchError, NotFound, fetch, fetc
 from nea_forecast.lake import log_many, seen, upsert
 
 SOURCE = "nea_ndor"
+DETAIL_URL = "https://transd.nea.org.np/detail/"
 LISTING_URL = "https://transd.nea.org.np/en/category/daily-operational-reports-1?page={}"
 PDF_URL = "https://transd.nea.org.np/uploads/shares/Daily_op_reports/NDOR%20{}_{}_{}.pdf"
 LISTING_RE = re.compile(r'href="(https?://transd\.nea\.org\.np/detail/(nepal-daily-operational-report-[\w-]+))"')
@@ -116,7 +117,11 @@ def _download_detail(detail_url: str) -> tuple[str, bytes]:
 def ingest(con, root: Path = Path("data")) -> int:
     raw = Path(root) / "raw" / SOURCE
     raw.mkdir(parents=True, exist_ok=True)
-    todo = list(reversed(discover(seen(con, SOURCE))))  # oldest first: newest rev wins
+    # failed keys sit deep in the listing, past where discover() stops: retry them explicitly
+    failed = [r[0] for r in con.execute("SELECT key FROM bronze.ingest_log WHERE source = ? AND status IN "
+                                        "('fetch_error', 'parse_error') ORDER BY key", [SOURCE]).fetchall()]
+    new = list(reversed(discover(seen(con, SOURCE))))  # oldest first: newest rev wins
+    todo = [(s, DETAIL_URL + s) for s in failed if s not in dict(new)] + new
     n = 0
     for i in range(0, len(todo), BATCH):
         chunk = todo[i:i + BATCH]

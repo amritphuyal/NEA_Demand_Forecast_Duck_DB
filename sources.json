@@ -139,14 +139,15 @@
     "fetcher": "httpx",
     "history": "1984..today (we take 2010..)",
     "cadence": "daily",
-    "status": "needs_user_verification",
+    "status": "verified",
     "target_table": "silver.river_discharge_daily",
-    "notes": "~5 km grid. Point coords approximate: verify each lands on the river cell (monsoon peak >> winter).",
+    "notes": "~5 km GloFAS grid. basin=true points (Koshi, Narayani/Gandaki, Karnali) drain most Nepal hydro and form gold discharge_index; checked 2026-10-25 by snapping to the max-flow cell. Per-plant points are approximate: Marsyangdi/Trishuli plausible, others need_user_verification (snapping jumped to other rivers).",
     "points": [
       {
         "id": "kali_gandaki_a",
         "lat": 27.98,
-        "lon": 83.58
+        "lon": 83.58,
+        "needs_user_verification": true
       },
       {
         "id": "trishuli",
@@ -161,27 +162,38 @@
       {
         "id": "upper_tamakoshi",
         "lat": 27.9,
-        "lon": 86.21
+        "lon": 86.21,
+        "needs_user_verification": true
       },
       {
         "id": "kulekhani",
         "lat": 27.59,
-        "lon": 85.15
+        "lon": 85.15,
+        "needs_user_verification": true
       },
       {
         "id": "sunkoshi",
         "lat": 27.76,
-        "lon": 85.86
+        "lon": 85.86,
+        "needs_user_verification": true
       },
       {
         "id": "karnali_chisapani",
-        "lat": 28.64,
-        "lon": 81.29
+        "lat": 28.59,
+        "lon": 81.24,
+        "basin": true
       },
       {
         "id": "koshi_chatara",
-        "lat": 26.87,
-        "lon": 87.16
+        "lat": 26.82,
+        "lon": 87.06,
+        "basin": true
+      },
+      {
+        "id": "narayani_devghat",
+        "lat": 27.71,
+        "lon": 84.38,
+        "basin": true
       }
     ]
   },

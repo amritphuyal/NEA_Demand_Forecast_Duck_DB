@@ -49,7 +49,11 @@ WITH w AS (
            avg((tmax_c + tmin_c) / 2) FILTER (point <> 'kathmandu') AS tmean_terai,
            avg(precip_mm) AS precip_mm_avg
     FROM silver.weather_daily GROUP BY date),
-q AS (SELECT date, sum(discharge_m3s) AS discharge_index, count(*) AS discharge_points
+q AS (SELECT date,  -- 3 big basins drain most Nepal hydro; per-plant points stay in silver
+             sum(discharge_m3s) FILTER (point IN ('koshi_chatara', 'narayani_devghat', 'karnali_chisapani')) AS discharge_index,
+             max(discharge_m3s) FILTER (point = 'narayani_devghat') AS q_narayani,
+             max(discharge_m3s) FILTER (point = 'koshi_chatara') AS q_koshi,
+             max(discharge_m3s) FILTER (point = 'karnali_chisapani') AS q_karnali
       FROM silver.river_discharge_daily GROUP BY date)
 SELECT c.*, n.* EXCLUDE (date, bs_date, source, source_url), w.* EXCLUDE (date), q.* EXCLUDE (date)
 FROM silver.dim_calendar c

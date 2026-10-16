@@ -4,13 +4,14 @@ from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 
-from nea_forecast import calendar, dhm, ndor, nea_docs, open_meteo
+from nea_forecast import calendar, dhm, ndor, nea_docs, open_meteo, reports
 from nea_forecast.lake import connect
 
 # name -> ingest(con) -> rows written
 INGESTERS: dict[str, Callable] = {
     "ndor": ndor.ingest,
     "docs": nea_docs.ingest,
+    "reports": reports.ingest,  # after docs: parses their Markdown
     "weather": open_meteo.ingest_weather,
     "discharge": open_meteo.ingest_discharge,
     "dhm": dhm.ingest,
@@ -54,6 +55,8 @@ def main(argv: list[str] | None = None) -> int:
     ing.add_argument("sources", nargs="+", help="source names or 'all'")
     sub.add_parser("status", help="row counts and date ranges per table")
     sub.add_parser("maintain", help="compact lake files, expire old snapshots")
+    se = sub.add_parser("search", help="regex search through downloaded NEA report Markdown")
+    se.add_argument("pattern")
     args = ap.parse_args(argv)
     if argv is None:  # real CLI run (not tests): keep a log per run
         sys.stdout = _Tee(Path("data/logs") / f"{datetime.now():%Y%m%d-%H%M%S}-{args.cmd}.log")
@@ -72,6 +75,8 @@ def main(argv: list[str] | None = None) -> int:
                 failed.append(name)
         con.close()  # unclosed connection makes duckdb print "nanobind: leaked" noise at exit
         return 1 if failed else 0
+    elif args.cmd == "search":
+        reports.search(args.pattern)
     elif args.cmd == "status":
         status(connect())
     elif args.cmd == "maintain":

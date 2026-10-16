@@ -72,3 +72,35 @@ SELECT bs_year, bs_month, min(date) AS start_date, any_value(fiscal_year) AS fis
        avg(tmean_terai) AS tmean_terai, avg(discharge_index) AS discharge_index
 FROM gold.daily_features
 GROUP BY bs_year, bs_month;
+
+-- NEA report tables (generic month-wise extraction; pick series in SQL)
+CREATE TABLE IF NOT EXISTS silver.report_monthly (
+    doc_key VARCHAR, fy VARCHAR, table_no INTEGER, title VARCHAR, series VARCHAR, bs_month INTEGER, value DOUBLE
+);
+CREATE TABLE IF NOT EXISTS silver.report_annual (
+    doc_key VARCHAR, fy VARCHAR, metric VARCHAR, value DOUBLE, unit VARCHAR, date_bs VARCHAR
+);
+
+-- Monthly balance per FY from annual reports: one row per (fy, bs_month, unit MW|GWh).
+-- Only tables that carry a national/total demand row (capacity / energy balance tables).
+CREATE VIEW IF NOT EXISTS gold.report_monthly_balance AS
+WITH t AS (
+    SELECT doc_key, table_no,
+           CASE WHEN bool_or(series ILIKE '%peak%') THEN 'MW'
+                WHEN bool_or(series ILIKE '%energy%' OR series ILIKE 'total demand%') THEN 'GWh' END AS unit
+    FROM silver.report_monthly
+    GROUP BY doc_key, table_no
+    HAVING bool_or(series ILIKE '%national%demand%' OR series ILIKE 'total demand%')
+)
+SELECT r.fy, r.bs_month, t.unit,
+       max(value) FILTER (series ILIKE '%national%demand%' OR series ILIKE 'net demand%') AS national_demand,
+       max(value) FILTER (series ILIKE '%system%demand%' OR series ILIKE 'total demand%') AS system_demand,
+       max(value) FILTER (series ILIKE 'import%') AS import,
+       max(value) FILTER (series ILIKE 'export%') AS export,
+       max(value) FILTER (series ILIKE '%storage%') AS storage,
+       max(value) FILTER (series ILIKE 'ipp%') AS ipp,
+       max(value) FILTER (series ILIKE '%interruption%') AS interruption,
+       any_value(r.doc_key) AS doc_key
+FROM silver.report_monthly r JOIN t USING (doc_key, table_no)
+WHERE t.unit IS NOT NULL
+GROUP BY r.fy, r.bs_month, t.unit;

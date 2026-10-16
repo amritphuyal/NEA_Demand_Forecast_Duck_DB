@@ -34,8 +34,9 @@ def ingest_category(con, root: Path, folder: str, listing_url: str, keyword: str
     source = f"nea_docs_{folder}"
     known, todo = seen(con, source), []
     for page in range(1, max_pages + 1):
+        queued = known | {s for s, _ in todo}  # some listings ignore ?page= and repeat page 1
         new = [i for i in parse_doc_listing(fetch(listing_url.format(page=page)).decode("utf-8", "replace"), keyword)
-               if i[0] not in known]
+               if i[0] not in queued]
         todo += new
         if not new:
             break

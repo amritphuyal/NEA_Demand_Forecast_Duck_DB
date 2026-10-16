@@ -47,7 +47,7 @@
     "cadence": "monthly",
     "status": "verified",
     "target_table": "silver.nea_document",
-    "notes": "Some titles end in 'rev1'. Tables parsed in Phase 2."
+    "notes": "Some titles end in 'rev1'. Tables parsed in Phase 2. NMOR 2080_02..09 detail pages link to 404 PDFs (uploads/shares/Annual%20Report/) — NEA-side broken links. Listing ignores ?page=."
   },
   {
     "id": "nea_yearly_reports",
@@ -207,9 +207,9 @@
     "fetcher": "httpx (from Nepal; geo-blocked abroad)",
     "history": "latest reading only; history accumulates from our snapshots",
     "cadence": "every 3h",
-    "status": "needs_user_verification",
+    "status": "unavailable",
     "target_table": "silver.river_level_obs",
-    "notes": "Inline 'var coordinates = [...]' JSON, ~309 gauges, water level (m) not discharge."
+    "notes": "Inline 'var coordinates = [...]' JSON, ~309 gauges, water level (m) not discharge. DOWN since 2026-10-25 (site offline, reportedly PHP vulnerability). Ingester ready; re-run `nea ingest dhm` when back."
   },
   {
     "id": "dhm_manual",

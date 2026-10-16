@@ -31,7 +31,7 @@ Old path `nea.org.np/admin/assets/uploads/ldc/NDOR {BS}.pdf` (also `www.`, `cms.
 
 `https://flood-api.open-meteo.com/v1/flood?latitude=..&longitude=..&daily=river_discharge&start_date=..&end_date=..`. Daily m³/s, 1984→, ~5 km grid. Points at major hydro sites (see `sources.json`); coordinates approximate — each must show monsoon peak ≫ winter or it's off-river.
 
-## DHM river-watch — `needs_user_verification`
+## DHM river-watch — `unavailable` (site down since 2026-10-25, reportedly PHP vulnerability)
 
 https://www.dhm.gov.np/hydrology/river-watch embeds `var coordinates = [...]` JSON (~309 gauges: id, name, basin, district, lat/lon, `waterLevel{value, datetime}`, warning/danger level). Latest reading only → history accumulates from our snapshots. Geo-blocked outside Nepal. Historical data only via request form / email.
 

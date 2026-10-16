@@ -37,3 +37,16 @@ def test_ingest_category_writes_pdf_md_and_skips_known(tmp_path, monkeypatch):
     md = tmp_path / "raw/nea_docs/annual/annual-report-20252026.md"
     assert "Daily Operational Report" in md.read_text()
     assert con.execute("select count(*) from silver.nea_document").fetchone()[0] == 2
+
+
+def test_listing_that_ignores_page_param_terminates(tmp_path, monkeypatch):
+    calls = []
+    def fake_fetch(url, expect_pdf=False):
+        if "list" in url:
+            calls.append(url)
+            return LISTING.encode()  # every page identical
+        return PDF if url.endswith(".pdf") else DETAIL.encode()
+    monkeypatch.setattr(nea_docs, "fetch", fake_fetch)
+    con = connect(tmp_path)
+    assert nea_docs.ingest_category(con, tmp_path, "annual", "https://x.test/list?page={page}", "annual-report") == 2
+    assert len(calls) == 2  # page 2 adds nothing new -> stop

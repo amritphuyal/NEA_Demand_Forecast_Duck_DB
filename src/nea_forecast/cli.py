@@ -1,5 +1,8 @@
 import argparse
+import sys
 from collections.abc import Callable
+from datetime import datetime
+from pathlib import Path
 
 from nea_forecast import calendar, dhm, ndor, nea_docs, open_meteo
 from nea_forecast.lake import connect
@@ -26,6 +29,24 @@ def status(con) -> None:
         print("  log", *row)
 
 
+class _Tee:
+    """Copy stdout to a log file, each line stamped with the time."""
+    def __init__(self, path: Path):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        self.out, self.f, self.bol = sys.stdout, open(path, "a", buffering=1), True
+
+    def write(self, s: str) -> int:
+        self.out.write(s)
+        for line in s.splitlines(keepends=True):
+            self.f.write((f"{datetime.now():%H:%M:%S} " if self.bol else "") + line)
+            self.bol = line.endswith("\n")
+        return len(s)
+
+    def flush(self) -> None:
+        self.out.flush()
+        self.f.flush()
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="nea", description="NEA demand forecast data pipeline")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -34,6 +55,8 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("status", help="row counts and date ranges per table")
     sub.add_parser("maintain", help="compact lake files, expire old snapshots")
     args = ap.parse_args(argv)
+    if argv is None:  # real CLI run (not tests): keep a log per run
+        sys.stdout = _Tee(Path("data/logs") / f"{datetime.now():%Y%m%d-%H%M%S}-{args.cmd}.log")
 
     if args.cmd == "ingest":
         names = list(INGESTERS) if args.sources == ["all"] else args.sources
@@ -47,6 +70,7 @@ def main(argv: list[str] | None = None) -> int:
             except Exception as e:  # one dead source must not stop the others
                 print(f"{name}: FAILED {type(e).__name__}: {e}", flush=True)
                 failed.append(name)
+        con.close()  # unclosed connection makes duckdb print "nanobind: leaked" noise at exit
         return 1 if failed else 0
     elif args.cmd == "status":
         status(connect())

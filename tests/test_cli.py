@@ -21,7 +21,7 @@ def test_ingest_continues_after_failure(monkeypatch, tmp_path, capsys):
     from nea_forecast import cli
     def boom(con): raise RuntimeError("site down")
     monkeypatch.setattr(cli, "INGESTERS", {"a": boom, "b": lambda con: 3})
-    monkeypatch.setattr(cli, "connect", lambda: None)
+    monkeypatch.setattr(cli, "connect", lambda: type("Con", (), {"close": lambda self: None})())
     assert cli.main(["ingest", "all"]) == 1
     out = capsys.readouterr().out
     assert "a: FAILED RuntimeError: site down" in out and "b: 3 rows" in out

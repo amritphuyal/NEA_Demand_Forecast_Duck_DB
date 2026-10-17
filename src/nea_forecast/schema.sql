@@ -104,3 +104,18 @@ SELECT r.fy, r.bs_month, t.unit,
 FROM silver.report_monthly r JOIN t USING (doc_key, table_no)
 WHERE t.unit IS NOT NULL
 GROUP BY r.fy, r.bs_month, t.unit;
+
+CREATE TABLE IF NOT EXISTS silver.report_energy_history (
+    doc_key VARCHAR, year INTEGER, fy VARCHAR, nea_gwh DOUBLE, nea_subsidiary_gwh DOUBLE, ipp_gwh DOUBLE,
+    import_gwh DOUBLE, total_gwh DOUBLE, national_peak_mw DOUBLE, system_peak_mw DOUBLE
+);
+
+-- Annual history (AD year = FY end) from the multi-year chart; newest report wins per year.
+-- Known issue: FY 2079/80 chart peaks (1870/1986) disagree with that year's LDC summary (1986.39/2171.15).
+CREATE VIEW IF NOT EXISTS gold.annual_history AS
+SELECT h.* EXCLUDE (doc_key), h.doc_key AS source_doc,
+       e.value AS ldc_national_energy_gwh, p.value AS ldc_national_peak_mw
+FROM (SELECT * FROM silver.report_energy_history
+      QUALIFY row_number() OVER (PARTITION BY year ORDER BY doc_key DESC) = 1) h
+LEFT JOIN silver.report_annual e ON e.fy = h.fy AND e.metric = 'annual national energy demand'
+LEFT JOIN silver.report_annual p ON p.fy = h.fy AND p.metric = 'annual national peak demand';

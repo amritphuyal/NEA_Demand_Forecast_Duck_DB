@@ -17,8 +17,11 @@ MONTHS = {
     12: ("chaitra", "chait"),
 }
 NUM_RE = re.compile(r"^-?[\d,]*\.?\d+$")
-LDC_RE = re.compile(r"(annual\s+(?:system|national)\s+(?:peak|energy)\s+demand)\W*\|\W*([\d,.]+)\s*(MW|GWh)"
-                    r"(?:\W*\|\W*(\d{4}-\d{2}-\d{2}))?", re.I)
+LDC_RE = re.compile(r"(annual\s+(?:system|national)\s+(peak|energy)\s+demand)\s*(?:\([^)|]*\))?[\s*i]*\|[\s*]*"
+                    r"([\d,]+(?:\.\d+)?)\s*(MW|GWh)?(?:[\s*]*\|[\s*]*(\d{4}-\d{2}-\d{2}))?", re.I)
+# "Total Energy Available & Peak Demand" chart text: year*, source GWh..., total GWh, national peak MW[, system peak MW]
+VAL = r"\d{1,3}(?:,\d{3})+|\d{1,3}"  # values >= 1000 always carry commas here; bare 4-digit tokens are years
+HIST_RE = re.compile(rf"(20\d\d)\*?\s+((?:(?:{VAL})\s+)*(?:{VAL}))(?=\s*$)")
 
 
 def clean(cell: str) -> str:
@@ -96,9 +99,28 @@ def month_tables(md: str, doc_key: str, fy: str | None) -> list[dict]:
 
 
 def ldc_summary(md: str, doc_key: str, fy: str | None) -> list[dict]:
+    """LDC 'Annual System/National Peak/Energy Demand' rows; unit implied when the report omits it."""
     return [{"doc_key": doc_key, "fy": fy, "metric": re.sub(r"\s+", " ", m[1]).lower(),
-             "value": float(m[2].replace(",", "")), "unit": m[3], "date_bs": m[4]}
+             "value": float(m[3].replace(",", "")), "unit": m[4] or ("MW" if m[2].lower() == "peak" else "GWh"),
+             "date_bs": m[5]}
             for m in LDC_RE.finditer(clean(md).replace("| |", "|"))]
+
+
+def energy_peak_history(md: str, doc_key: str) -> list[dict]:
+    """Rows of the multi-year 'Total Energy Available & Peak Demand' chart, kept only if the four
+    sources add up to the total (the chart's own arithmetic catches mangled text)."""
+    out = []
+    for block in re.findall(r"Start of picture text -->(.*?)<!-- End of picture text", md, re.S):
+        for cell in re.split(r"\||<br>|\n", block):
+            for m in HIST_RE.finditer(cell.strip()):
+                v = [float(x.replace(",", "")) for x in re.findall(VAL, m[2])]
+                if len(v) not in (6, 7) or abs(sum(v[:4]) - v[4]) > 3:
+                    continue
+                y = int(m[1])
+                out.append({"doc_key": doc_key, "year": y, "fy": f"{y + 56}/{(y + 57) % 100:02d}",
+                            "nea_gwh": v[0], "nea_subsidiary_gwh": v[1], "ipp_gwh": v[2], "import_gwh": v[3],
+                            "total_gwh": v[4], "national_peak_mw": v[5], "system_peak_mw": v[6] if len(v) == 7 else None})
+    return out
 
 
 def ingest(con, root: Path = Path("data")) -> int:
@@ -109,6 +131,7 @@ def ingest(con, root: Path = Path("data")) -> int:
         fy = fy_from_key(key)
         n += upsert(con, "silver.report_monthly", month_tables(md, key, fy), ("doc_key", "table_no", "series", "bs_month"))
         upsert(con, "silver.report_annual", ldc_summary(md, key, fy), ("doc_key", "metric"))
+        upsert(con, "silver.report_energy_history", energy_peak_history(md, key), ("doc_key", "year"))
     return n
 
 

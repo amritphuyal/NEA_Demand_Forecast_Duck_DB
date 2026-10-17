@@ -63,3 +63,35 @@ def test_gold_monthly_balance(tmp_path):
     got = con.execute("select unit, national_demand, import from gold.report_monthly_balance "
                       "where fy='2082/83' and bs_month=10").fetchone()
     assert got == ("MW", 2256, 295)
+
+
+CHART = """<!-- Start of picture text -->
+ 3,000  2,500  - 2026* 2,803 3,826 10,825 1,171 18,624 2,479 3,226<br>2,479<br>2026*<br>2025 2,953 2,400 8,606 1,681 15,641 2,409 2,901<br>2,409
+<!-- End of picture text -->
+<!-- Start of picture text -->
+ 2,000 | 2022*  2021  2,804   148   3,093   2,806   8,851   1,482 |  1,482 | 2019  2548 ,  2190 ,  2813 , 551  7, 320  1, | 1,320
+<!-- End of picture text -->"""
+
+
+def test_energy_peak_history_validates_rows():
+    got = {r["year"]: r for r in reports.energy_peak_history(CHART, "k")}
+    assert set(got) == {2026, 2025, 2021}  # garbled 2019 row fails the sum check -> dropped
+    assert got[2026]["fy"] == "2082/83" and got[2026]["import_gwh"] == 1171
+    assert (got[2026]["national_peak_mw"], got[2026]["system_peak_mw"]) == (2479, 3226)
+    assert got[2021]["total_gwh"] == 8851 and got[2021]["national_peak_mw"] == 1482 and got[2021]["system_peak_mw"] is None
+
+
+def test_ldc_summary_2023_wording():
+    md = "|Annual System  Peak Demand (11 July 2023)|2,171.15 MW|\n|Annual  National Peak Demand (01 June 2023)|1986.39|"
+    got = {r["metric"]: (r["value"], r["unit"]) for r in reports.ldc_summary(md, "k", "2079/80")}
+    assert got == {"annual system peak demand": (2171.15, "MW"), "annual national peak demand": (1986.39, "MW")}
+
+
+def test_gold_annual_history_newest_report_wins(tmp_path):
+    from nea_forecast.lake import connect, upsert
+    con = connect(tmp_path)
+    old = reports.energy_peak_history(CHART, "annual-report-202122")
+    new = [{**r, "doc_key": "annual-report-20252026", "import_gwh": 9.0} for r in old if r["year"] == 2025]
+    upsert(con, "silver.report_energy_history", old + new, ("doc_key", "year"))
+    rows = dict(con.execute("select year, import_gwh from gold.annual_history").fetchall())
+    assert rows[2025] == 9.0 and rows[2026] == 1171

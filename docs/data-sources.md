@@ -46,7 +46,7 @@ Not extractable: Kulekhani reservoir water level (chart image only). Monthly ope
 
 https://www.dhm.gov.np/hydrology/river-watch embeds `var coordinates = [...]` JSON (~309 gauges: id, name, basin, district, lat/lon, `waterLevel{value, datetime}`, warning/danger level). Latest reading only → history accumulates from our snapshots. Geo-blocked outside Nepal. Historical data only via request form / email.
 
-## DHM historical (email) — `requested`
+## DHM historical (email) — `requested` (sent 2026-10-25, awaiting reply)
 
 Draft: `docs/outreach/dhm-data-request.md`. Top-5 sites: Kulekhani reservoir, Tamakoshi @ Busti, Kali Gandaki @ Setibeni, Trishuli @ Betrawati, Marsyangdi @ Bimalnagar. Daily discharge, level, precipitation, temperature, 2010→present.
 
@@ -59,7 +59,7 @@ Draft: `docs/outreach/dhm-data-request.md`. Top-5 sites: Kulekhani reservoir, Ta
 | River discharge at hydro sites | domestic generation capacity | GloFAS | needs_user_verification |
 | GloFAS seasonal discharge forecast (7 months) | future winter supply driver | Open-Meteo flood API | planned |
 | Kulekhani reservoir level | storage for winter peaks | news only, no feed; ask NEA/DHM | requested |
-| India exchange after Jan 2025 | import target when NDOR missing | Grid-India NLDC PSP PDFs (`report.grid-india.in`) | planned |
-| GDP | demand trend | World Bank API `NY.GDP.MKTP.KD` | planned |
+| India exchange after Jan 2025 | import target when NDOR missing | Grid-India NLDC PSP PDFs | unavailable (2026-10-25: `report.grid-india.in` gone from DNS, `grid-india.in` resets connections; user checking in browser) |
+| GDP, population | demand trend | World Bank API `NY.GDP.MKTP.KD`, `SP.POP.TOTL` → `silver.macro_yearly`, joined into `gold.annual_history` | verified (1960–2025) |
 | Peak demand snapshot | sanity check | nea.org.np homepage "Energy Details" widget | planned |
 | New connections / industrial load | demand growth | NEA annual report | Phase 2 |

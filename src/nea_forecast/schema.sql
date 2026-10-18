@@ -73,6 +73,8 @@ SELECT bs_year, bs_month, min(date) AS start_date, any_value(fiscal_year) AS fis
 FROM gold.daily_features
 GROUP BY bs_year, bs_month;
 
+CREATE TABLE IF NOT EXISTS silver.macro_yearly (year INTEGER, indicator VARCHAR, name VARCHAR, value DOUBLE);
+
 -- NEA report tables (generic month-wise extraction; pick series in SQL)
 CREATE TABLE IF NOT EXISTS silver.report_monthly (
     doc_key VARCHAR, fy VARCHAR, table_no INTEGER, title VARCHAR, series VARCHAR, bs_month INTEGER, value DOUBLE
@@ -90,11 +92,14 @@ CREATE TABLE IF NOT EXISTS silver.report_energy_history (
 -- Known issue: FY 2079/80 chart peaks (1870/1986) disagree with that year's LDC summary (1986.39/2171.15).
 CREATE VIEW IF NOT EXISTS gold.annual_history AS
 SELECT h.* EXCLUDE (doc_key), h.doc_key AS source_doc,
-       e.value AS ldc_national_energy_gwh, p.value AS ldc_national_peak_mw
+       e.value AS ldc_national_energy_gwh, p.value AS ldc_national_peak_mw,
+       g.value AS gdp_usd_2015, pop.value AS population
 FROM (SELECT * FROM silver.report_energy_history
       QUALIFY row_number() OVER (PARTITION BY year ORDER BY doc_key DESC) = 1) h
 LEFT JOIN silver.report_annual e ON e.fy = h.fy AND e.metric = 'annual national energy demand'
-LEFT JOIN silver.report_annual p ON p.fy = h.fy AND p.metric = 'annual national peak demand';
+LEFT JOIN silver.report_annual p ON p.fy = h.fy AND p.metric = 'annual national peak demand'
+LEFT JOIN silver.macro_yearly g ON g.year = h.year AND g.indicator = 'NY.GDP.MKTP.KD'  -- FY ends mid-July of h.year
+LEFT JOIN silver.macro_yearly pop ON pop.year = h.year AND pop.indicator = 'SP.POP.TOTL';
 
 -- Monthly balance per FY from annual reports: one row per (fy, bs_month, unit MW|GWh), from capacity /
 -- energy balance tables (text layer or OCR). A month is kept only if the table's own arithmetic holds

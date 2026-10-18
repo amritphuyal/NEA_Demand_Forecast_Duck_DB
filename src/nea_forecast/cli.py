@@ -5,7 +5,7 @@ from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 
-from nea_forecast import calendar, dhm, ndor, nea_docs, ocr, open_meteo, reports
+from nea_forecast import calendar, dhm, ndor, nea_docs, ocr, open_meteo, reports, world_bank
 from nea_forecast.lake import connect
 
 # name -> ingest(con) -> rows written
@@ -18,6 +18,7 @@ INGESTERS: dict[str, Callable] = {
     "discharge": open_meteo.ingest_discharge,
     "dhm": dhm.ingest,
     "calendar": calendar.ingest,
+    "macro": world_bank.ingest,
 }
 
 

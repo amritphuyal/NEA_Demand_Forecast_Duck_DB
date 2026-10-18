@@ -235,22 +235,26 @@
     "fetcher": "httpx",
     "history": "multi-year",
     "cadence": "daily",
-    "status": "planned",
+    "status": "unavailable",
     "target_table": "silver.india_exchange_daily",
-    "notes": "Post-2025 proxy for Nepal import/export when NDOR missing."
+    "notes": "Post-2025 proxy for Nepal import/export when NDOR missing. 2026-10-25: report.grid-india.in no longer resolves; grid-india.in resets connections from this laptop. User to check in browser."
   },
   {
-    "id": "world_bank_gdp",
-    "name": "World Bank GDP (constant USD), Nepal",
+    "id": "world_bank",
+    "name": "World Bank yearly indicators, Nepal (GDP, population)",
     "kind": "json_api",
     "urls": {
-      "api": "https://api.worldbank.org/v2/country/NPL/indicator/NY.GDP.MKTP.KD?format=json&per_page=100"
+      "api": "https://api.worldbank.org/v2/country/NPL/indicator/{indicator}?format=json&per_page=100"
     },
     "fetcher": "httpx",
-    "history": "1960..",
+    "history": "1960..2025",
     "cadence": "yearly",
-    "status": "planned",
+    "status": "verified",
     "target_table": "silver.macro_yearly",
-    "notes": "Trend driver for seasonal/annual model."
+    "notes": "GDP constant 2015 US$ + population: yearly demand-growth drivers. Full refresh each run (WB revises past years).",
+    "indicators": [
+      "NY.GDP.MKTP.KD",
+      "SP.POP.TOTL"
+    ]
   }
 ]

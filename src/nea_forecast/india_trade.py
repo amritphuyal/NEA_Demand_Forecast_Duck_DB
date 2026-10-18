@@ -2,6 +2,7 @@
 India's export to Nepal = Nepal import; India's import from Nepal = Nepal export. Monthly, 2018 -> ~2 months
 ago: fills the Jan 2025+ gap left by NEA's daily reports. Customs booking months are lumpy, so the
 Indian-FY-to-date total (Apr..month) is stored too; quantity unit TKW = MWh."""
+import csv
 import re
 import threading
 import time
@@ -32,19 +33,44 @@ def _cells(row_html: str) -> list[str]:
     return [re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", c)).strip() for c in re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", row_html, re.S)]
 
 
+def table_rows(html: str) -> list[list[str]]:
+    """The result table as rows of cells (header + one row per country + Total)."""
+    return [c for c in (_cells(r) for r in re.findall(r"<tr[^>]*>(.*?)</tr>", html, re.S)) if any(c)]
+
+
+def save_csv(rows: list[list[str]], path: Path) -> None:
+    with open(path, "w", newline="") as f:
+        csv.writer(f).writerows(rows)
+
+
 def parse(html: str, direction: str, measure: str) -> list[dict]:
+    return parse_rows(table_rows(html), direction, measure)
+
+
+def _after(row: list[str] | None, label: str) -> list[float]:
+    """Cells after the label, by position: month(prev), month(cur), growth, cum(prev), cum(cur), growth.
+    '-' (shown for growth when a side is 0) must keep its slot, else values shift."""
+    if not row:
+        return []
+    cells = row[row.index(label) + 1:]
+    return [float(c.replace(",", "")) if re.fullmatch(r"-?[\d,]*\.?\d+", c.replace(",", "")) else 0.0 for c in cells]
+
+
+def parse_rows(rows: list[list[str]], direction: str, measure: str) -> list[dict]:
     """Two monthly points (same month, previous and current year) from one result table."""
-    rows = [_cells(r) for r in re.findall(r"<tr[^>]*>(.*?)</tr>", html, re.S)]
     header = next((r for r in rows if "Country" in r), None)
     months = [date(int(m[2]), MON[m[1]], 1) for c in (header or []) if (m := re.match(r"([A-Z][a-z]{2})-(\d{4})", c))]
     if len(months) < 2 or not any(r and r[0].isdigit() for r in rows):
         return []  # month not published yet
-    nep = next((r for r in rows if "NEPAL" in r), None)
-    nums = [float(c.replace(",", "")) for c in nep[2:] if re.fullmatch(r"-?[\d,.]+", c)] if nep else []
-    # Nepal row: month(prev), month(cur), growth, cum(prev), cum(cur), growth
-    vals = (nums[0], nums[1], nums[3], nums[4]) if len(nums) >= 5 else (0, 0, 0, 0)
+    nep = _after(next((r for r in rows if "NEPAL" in r), None), "NEPAL")
+    total = _after(next((r for r in rows if "Total" in r), None), "Total")
+    vals = (nep[0], nep[1], nep[3], nep[4]) if len(nep) >= 5 else (0, 0, 0, 0)
+    # unpublished month: page still renders with every country 0 -> total 0. Only for recent months: old
+    # all-zero months are real customs booking gaps (e.g. Feb 2018, while the FY-to-date total keeps rising)
+    unpublished = len(total) >= 2 and total[1] == 0 and months[1] >= _today() - timedelta(days=90)
+    keep = (0,) if unpublished else (0, 1)
     return [{"month": months[k], "direction": direction, "measure": measure,
-             "month_value": vals[k], "fy_cum_value": vals[k + 2]} for k in (0, 1)]
+             "month_value": vals[k], "fy_cum_value": vals[k + 2]} for k in keep]
 
 
 def months_to_query(stored: set[date], today: date, start: date | None = None) -> list[date]:
@@ -77,11 +103,16 @@ _local = threading.local()
 
 
 def _query_threaded(args: tuple) -> tuple:
-    direction, measure, m = args
+    direction, measure, m, csv_path = args
+    if csv_path.exists() and m < _today() - timedelta(days=RECHECK_DAYS):  # saved earlier: no refetch
+        with open(csv_path, newline="") as f:
+            return args, list(csv.reader(f)), None
     if not hasattr(_local, "client"):
         _local.client = httpx.Client(headers=HEADERS, timeout=60, follow_redirects=True)
     try:
-        return args, query(_local.client, direction, measure, m), None
+        rows = table_rows(query(_local.client, direction, measure, m))
+        save_csv(rows, csv_path)  # readable raw copy
+        return args, rows, None
     except Exception as e:  # reported per month, run continues
         return args, None, e
 
@@ -95,26 +126,29 @@ def ingest(con, root: Path = Path("data")) -> int:
             stored = {r[0] for r in con.execute("SELECT month FROM silver.india_trade_monthly WHERE direction = ? "
                                                 "AND measure = ?", [direction, measure]).fetchall()}
             todo = months_to_query(stored, _today())
-            # a query for month M+1y also returns M (previous-year column): skip M when M+1y is queried anyway
-            recent, planned = _today() - timedelta(days=RECHECK_DAYS), set(todo)
-            todo = [m for m in todo if m >= recent or date(m.year + 1, m.month, 1) not in planned]
+            # a query for month M also returns M-1y (previous-year column): walk newest -> oldest and only
+            # query months no newer query covers; recent months always re-queried (revisions)
+            recent, covered, chosen = _today() - timedelta(days=RECHECK_DAYS), set(), []
+            for m in sorted(todo, reverse=True):
+                if m >= recent or m not in covered:
+                    chosen.append(m)
+                    covered |= {m, date(m.year - 1, m.month, 1)}
+            todo = chosen
             print(f"  india trade {direction} {measure}: {len(todo)} quer(ies)", flush=True)
-            jobs += [(direction, measure, m) for m in todo]
+            jobs += [(direction, measure, m, raw / f"{direction}_{measure}_{m:%Y_%m}.csv") for m in todo]
     n, done, rows = 0, 0, []
     with ThreadPoolExecutor(WORKERS) as ex:
-        for (direction, measure, m), html, err in ex.map(_query_threaded, jobs):
+        for (direction, measure, m, _), table, err in ex.map(_query_threaded, jobs):
             done += 1
             if err:
                 print(f"    {direction} {measure} {m:%Y-%m}: FAILED {type(err).__name__}: {err}", flush=True)
                 continue
-            (raw / f"{direction}_{measure}_{m:%Y_%m}.html").write_text(html)
-            got = parse(html, direction, measure)
+            got = parse_rows(table, direction, measure)
             rows += got
-            if got:
-                print(f"    [{done}/{len(jobs)}] {direction} {measure} {m:%Y-%m}: {got[-1]['month_value']:,.0f} "
-                      f"(FY-to-date {got[-1]['fy_cum_value']:,.0f})", flush=True)
-            else:
-                print(f"    [{done}/{len(jobs)}] {direction} {measure} {m:%Y-%m}: not published yet", flush=True)
+            cur = next((r for r in got if r["month"] == m), None)
+            print(f"    [{done}/{len(jobs)}] {direction} {measure} {m:%Y-%m}: " +
+                  (f"{cur['month_value']:,.0f} (FY-to-date {cur['fy_cum_value']:,.0f})" if cur else "not published yet"),
+                  flush=True)
             if len(rows) >= 100:  # batch lake writes (main thread only)
                 n += upsert(con, "silver.india_trade_monthly", rows, ("month", "direction", "measure"))
                 rows = []

@@ -37,6 +37,8 @@ def ingest(con, root: Path = Path("data")) -> int:
     html = fetch(URL)
     raw = Path(root) / "raw" / "dhm"
     raw.mkdir(parents=True, exist_ok=True)
-    (raw / f"{datetime.now():%Y%m%dT%H%M%S}.html").write_bytes(html)
+    m = COORDS_RE.search(html.decode("utf-8", "replace"))
+    if m:  # the page's embedded gauge JSON, not the whole page
+        (raw / f"{datetime.now():%Y%m%dT%H%M%S}.json").write_text(m.group(1))
     return upsert(con, "silver.river_level_obs", parse_river_watch(html.decode("utf-8", "replace")),
                   ("station_id", "observed_at"))

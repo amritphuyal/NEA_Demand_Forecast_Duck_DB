@@ -240,20 +240,6 @@
     "notes": "Email sent 2026-10-25 (docs/outreach/dhm-data-request.md); awaiting reply. Loader added when data arrives."
   },
   {
-    "id": "grid_india_psp",
-    "name": "Grid-India NLDC daily PSP report (transnational exchange)",
-    "kind": "pdf",
-    "urls": {
-      "example": "https://report.grid-india.in/ReportData/Daily%20Report/PSP%20Report/2023-2024/June%202023/07.06.23_NLDC_PSP.pdf"
-    },
-    "fetcher": "httpx",
-    "history": "multi-year",
-    "cadence": "daily",
-    "status": "unavailable",
-    "target_table": "silver.india_exchange_daily",
-    "notes": "Post-2025 proxy for Nepal import/export when NDOR missing. 2026-10-25: report.grid-india.in no longer resolves; grid-india.in resets connections from this laptop. User to check in browser."
-  },
-  {
     "id": "world_bank",
     "name": "World Bank yearly indicators, Nepal (GDP, population)",
     "kind": "json_api",
@@ -270,5 +256,48 @@
       "NY.GDP.MKTP.KD",
       "SP.POP.TOTL"
     ]
+  },
+  {
+    "id": "grid_india_psp",
+    "name": "Grid-India NLDC daily PSP report (transnational exchange)",
+    "kind": "pdf",
+    "urls": {
+      "example": "https://report.grid-india.in/ReportData/Daily%20Report/PSP%20Report/2023-2024/June%202023/07.06.23_NLDC_PSP.pdf"
+    },
+    "fetcher": "httpx",
+    "history": "multi-year",
+    "cadence": "daily",
+    "status": "unavailable",
+    "target_table": "silver.india_exchange_daily",
+    "notes": "Post-2025 proxy for Nepal import/export when NDOR missing. 2026-10-25: report.grid-india.in no longer resolves; grid-india.in resets connections from this laptop. User to check in browser."
+  },
+  {
+    "id": "india_tradestat",
+    "name": "India Ministry of Commerce TradeStat, HS 27160000 Electrical Energy (Nepal row)",
+    "kind": "html_form_post",
+    "urls": {
+      "export_page": "https://tradestat.commerce.gov.in/meidb/commodity_wise_all_countries_export",
+      "import_page": "https://tradestat.commerce.gov.in/meidb/commodity_wise_all_countries_import"
+    },
+    "fetcher": "httpx, per-worker session (one-time CSRF token per POST), 6 parallel",
+    "history": "2018-01 .. ~2 months ago",
+    "cadence": "monthly",
+    "status": "verified",
+    "target_table": "silver.india_trade_monthly",
+    "notes": "India export to Nepal = Nepal import (direction nepal_import); India import = nepal_export. MWh (TKW) + INR crore. Customs booking is lumpy (all-zero months, e.g. Feb 2018) - FY-to-date total stored too. vs NEA annual import: 2021 exact, most years within 5-19%, 2023 +32%. Raw: one CSV per query in data/raw/india_trade/."
+  },
+  {
+    "id": "cerc_mmc",
+    "name": "CERC monthly short-term market report (Excel), cross-border trade at IEX",
+    "kind": "xlsx",
+    "urls": {
+      "index": "https://www.cercind.gov.in/report_MM-{year}.html"
+    },
+    "fetcher": "httpx + DuckDB excel extension, 6 parallel",
+    "history": "2023-01 .. ~6 months ago (earlier years PDF-only)",
+    "cadence": "monthly",
+    "status": "verified",
+    "target_table": "silver.iex_cross_border_monthly",
+    "notes": "Nepal row of every 'CROSS BORDER TRADE THROUGH <market>' table: DAM / RTM. purchase = Nepal import, sale = Nepal export (MU = GWh) + weighted price INR/kWh. Short-term exchange trade only (not long-term/bilateral)."
   }
 ]

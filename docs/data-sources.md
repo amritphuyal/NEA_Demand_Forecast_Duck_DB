@@ -59,7 +59,7 @@ Draft: `docs/outreach/dhm-data-request.md`. Top-5 sites: Kulekhani reservoir, Ta
 | River discharge at hydro sites | domestic generation capacity | GloFAS | needs_user_verification |
 | GloFAS seasonal discharge forecast (7 months) | future winter supply driver | Open-Meteo flood API | planned |
 | Kulekhani reservoir level | storage for winter peaks | news only, no feed; ask NEA/DHM | requested |
-| India exchange after Jan 2025 | import target when NDOR missing | Grid-India NLDC PSP PDFs | unavailable (2026-10-25: `report.grid-india.in` gone from DNS, `grid-india.in` resets connections; user checking in browser) |
+| India exchange after Jan 2025 | import target when NDOR missing | **India customs TradeStat** (monthly 2018 →, `silver.india_trade_monthly`) + **CERC Table 46** IEX buy/sell + price (2023 →, `silver.iex_cross_border_monthly`) — verified. Grid-India daily PSP | unavailable (2026-10-25: `report.grid-india.in` gone from DNS, `grid-india.in` resets connections; user checking in browser) |
 | GDP, population | demand trend | World Bank API `NY.GDP.MKTP.KD`, `SP.POP.TOTL` → `silver.macro_yearly`, joined into `gold.annual_history` | verified (1960–2025) |
 | Peak demand snapshot | sanity check | nea.org.np homepage "Energy Details" widget | planned |
 | New connections / industrial load | demand growth | NEA annual report | Phase 2 |

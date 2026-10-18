@@ -2,6 +2,7 @@
 stopped (Jan 2025). Undated and overwritten daily, so each run snapshots it and a row is kept only
 when the numbers change; first_seen tells when NEA updated it (figures are most likely the previous day)."""
 import hashlib
+import json
 import re
 from datetime import datetime
 from pathlib import Path
@@ -38,8 +39,12 @@ def ingest(con, root: Path = Path("data")) -> int:
     now = datetime.now()
     raw = Path(root) / "raw" / "nea_widget"
     raw.mkdir(parents=True, exist_ok=True)
-    (raw / f"{now:%Y%m%dT%H%M%S}.html").write_bytes(html)
-    row = parse(html.decode("utf-8", "replace"))
+    try:
+        row = parse(html.decode("utf-8", "replace"))
+    except ValueError:
+        (raw / f"{now:%Y%m%dT%H%M%S}_failed.html").write_bytes(html)  # keep the page only to debug a layout change
+        raise
+    (raw / f"{now:%Y%m%dT%H%M%S}.json").write_text(json.dumps({"fetched_at": now.isoformat(), **row}, indent=1))
     h = hashlib.sha256(repr(sorted(row.items())).encode()).hexdigest()[:16]
     if con.execute("SELECT 1 FROM silver.nea_widget WHERE values_hash = ?", [h]).fetchone():
         print(f"  nea widget unchanged (national peak {row['national_peak_mw']:.0f} MW)", flush=True)

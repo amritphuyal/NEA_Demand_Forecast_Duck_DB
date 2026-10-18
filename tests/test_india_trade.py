@@ -1,3 +1,4 @@
+import re
 from datetime import date
 from pathlib import Path
 
@@ -50,3 +51,38 @@ def test_ingest_skips_month_covered_by_next_year_query(tmp_path, monkeypatch):
     india_trade.ingest(connect(tmp_path), tmp_path)
     assert date(2024, 1, 1) not in asked and date(2025, 1, 1) in asked  # Jan 2025 query returns Jan 2024 too
     assert date(2024, 2, 1) in asked  # Feb 2025 doesn't exist yet -> Feb 2024 asked directly
+
+
+def test_unpublished_month_keeps_only_previous_year(monkeypatch):
+    monkeypatch.setattr(india_trade, "_today", lambda: date(2025, 2, 20))
+    tbl = TBL.replace("252,020", "0").replace("961,250", "0")
+    tbl = re.sub(r"855,359\.00", "0.00", tbl)  # Total for the current month = 0 -> unpublished
+    got = india_trade.parse(tbl, "nepal_import", "mwh")
+    assert [r["month"] for r in got] == [date(2024, 1, 1)]
+
+
+def test_old_all_zero_month_is_kept_as_data(monkeypatch):
+    monkeypatch.setattr(india_trade, "_today", lambda: date(2026, 10, 25))
+    tbl = re.sub(r"855,359\.00", "0.00", TBL.replace("252,020", "0"))
+    assert [r["month_value"] for r in india_trade.parse(tbl, "nepal_import", "mwh")] == [271790, 0]
+
+
+def test_dash_growth_keeps_column_positions():
+    rows = [["S.No.", "Country", "Feb-2017 (R)", "Feb-2018 (R)", "%Growth", "Apr-Feb2017 (R)", "Apr-Feb2018 (R)", "%Growth"],
+            ["2", "NEPAL", "231,000", "0", "-", "1,789,640", "1,820,020", "2"],
+            ["", "Total", "598,000.00", "0.00", "-", "5,794,715.00", "5,871,690.00", "1.33"]]
+    got = india_trade.parse_rows(rows, "nepal_import", "mwh")
+    assert [(r["month_value"], r["fy_cum_value"]) for r in got] == [(231000, 1789640), (0, 1820020)]
+
+
+def test_fresh_backfill_reaches_old_years(tmp_path, monkeypatch):
+    asked = []
+    monkeypatch.setattr(india_trade, "query", lambda client, d, ms, m: asked.append(m) or TBL)
+    monkeypatch.setattr(india_trade, "START", date(2018, 1, 1))
+    monkeypatch.setattr(india_trade, "_today", lambda: date(2026, 10, 25))
+    monkeypatch.setattr(india_trade, "PAGES", {"nepal_import": ("export", "cwacex")})
+    monkeypatch.setattr(india_trade, "MEASURES", {"mwh": "2"})
+    india_trade.ingest(connect(tmp_path), tmp_path)
+    covered = {m for a in asked for m in (a, date(a.year - 1, a.month, 1))}
+    assert date(2018, 3, 1) in covered and date(2021, 6, 1) in covered
+    assert len(asked) < 70  # ~half of 106 months

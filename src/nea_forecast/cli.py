@@ -5,7 +5,7 @@ from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 
-from nea_forecast import calendar, dhm, ndor, nea_docs, nea_widget, ocr, open_meteo, reports, world_bank
+from nea_forecast import calendar, cerc, dhm, india_trade, ndor, nea_docs, nea_widget, ocr, open_meteo, reports, world_bank
 from nea_forecast.lake import connect
 
 # name -> ingest(con) -> rows written
@@ -20,6 +20,8 @@ INGESTERS: dict[str, Callable] = {
     "dhm": dhm.ingest,
     "calendar": calendar.ingest,
     "macro": world_bank.ingest,
+    "cerc": cerc.ingest,  # monthly Nepal buy/sell + price on India's power exchange (IEX), 2023 ->
+    "india_trade": india_trade.ingest,  # monthly India<->Nepal electricity trade (customs), 2018 ->
 }
 
 

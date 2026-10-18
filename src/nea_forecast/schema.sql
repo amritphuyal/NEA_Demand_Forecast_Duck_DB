@@ -80,6 +80,17 @@ CREATE TABLE IF NOT EXISTS silver.nea_widget (
     national_energy_demand_mwh DOUBLE, total_peak_mw DOUBLE, national_peak_mw DOUBLE
 );
 
+-- India customs (TradeStat HS 27160000), Nepal row. direction: nepal_import | nepal_export; measure: mwh | inr_crore
+CREATE TABLE IF NOT EXISTS silver.india_trade_monthly (
+    month DATE, direction VARCHAR, measure VARCHAR, month_value DOUBLE, fy_cum_value DOUBLE
+);
+
+-- CERC monthly market report: Nepal on IEX (purchase = Nepal import, sale = Nepal export), MU = GWh
+CREATE TABLE IF NOT EXISTS silver.iex_cross_border_monthly (
+    month DATE, market VARCHAR, sale_mu DOUBLE, purchase_mu DOUBLE, net_mu DOUBLE,
+    sale_price DOUBLE, purchase_price DOUBLE, source_url VARCHAR
+);
+
 CREATE TABLE IF NOT EXISTS silver.macro_yearly (year INTEGER, indicator VARCHAR, name VARCHAR, value DOUBLE);
 
 -- NEA report tables (generic month-wise extraction; pick series in SQL)

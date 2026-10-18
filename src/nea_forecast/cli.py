@@ -1,10 +1,11 @@
 import argparse
 import sys
+import time
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 
-from nea_forecast import calendar, dhm, ndor, nea_docs, open_meteo, reports
+from nea_forecast import calendar, dhm, ndor, nea_docs, ocr, open_meteo, reports
 from nea_forecast.lake import connect
 
 # name -> ingest(con) -> rows written
@@ -12,6 +13,7 @@ INGESTERS: dict[str, Callable] = {
     "ndor": ndor.ingest,
     "docs": nea_docs.ingest,
     "reports": reports.ingest,  # after docs: parses their Markdown
+    "ocr": ocr.ingest,  # after docs: balance tables printed as images (~30 s/page, cached)
     "weather": open_meteo.ingest_weather,
     "discharge": open_meteo.ingest_discharge,
     "dhm": dhm.ingest,
@@ -66,13 +68,16 @@ def main(argv: list[str] | None = None) -> int:
         unknown = set(names) - set(INGESTERS)
         if unknown:
             ap.error(f"unknown sources: {sorted(unknown)}; known: {sorted(INGESTERS)}")
-        con, failed = connect(), []
+        con, failed, t0 = connect(), [], time.time()
         for name in names:
+            t = time.time()
+            print(f"▶ {name}: start", flush=True)
             try:
-                print(f"{name}: {INGESTERS[name](con)} rows", flush=True)
+                print(f"✔ {name}: {INGESTERS[name](con)} rows in {time.time() - t:.0f}s", flush=True)
             except Exception as e:  # one dead source must not stop the others
-                print(f"{name}: FAILED {type(e).__name__}: {e}", flush=True)
+                print(f"✖ {name}: FAILED after {time.time() - t:.0f}s: {type(e).__name__}: {e}", flush=True)
                 failed.append(name)
+        print(f"== ingest done in {time.time() - t0:.0f}s; failed: {failed or 'none'}", flush=True)
         con.close()  # unclosed connection makes duckdb print "nanobind: leaked" noise at exit
         return 1 if failed else 0
     elif args.cmd == "search":

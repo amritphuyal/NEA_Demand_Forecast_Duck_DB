@@ -27,4 +27,6 @@ def build_calendar(start: date, end: date) -> list[dict]:
 
 
 def ingest(con, root: Path = Path("data")) -> int:
-    return upsert(con, "silver.dim_calendar", build_calendar(START, date.today() + timedelta(days=400)), ("date",))
+    end = date.today() + timedelta(days=400)
+    print(f"  calendar {START} .. {end}", flush=True)
+    return upsert(con, "silver.dim_calendar", build_calendar(START, end), ("date",))

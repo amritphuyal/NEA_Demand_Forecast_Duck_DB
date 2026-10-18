@@ -24,4 +24,4 @@ def test_ingest_continues_after_failure(monkeypatch, tmp_path, capsys):
     monkeypatch.setattr(cli, "connect", lambda: type("Con", (), {"close": lambda self: None})())
     assert cli.main(["ingest", "all"]) == 1
     out = capsys.readouterr().out
-    assert "a: FAILED RuntimeError: site down" in out and "b: 3 rows" in out
+    assert "a: FAILED" in out and "site down" in out and "b: 3 rows" in out

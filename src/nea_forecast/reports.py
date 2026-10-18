@@ -129,9 +129,11 @@ def ingest(con, root: Path = Path("data")) -> int:
     for md_path in sorted((Path(root) / "raw" / "nea_docs").glob("*/*.md")):
         key, md = md_path.stem, md_path.read_text()
         fy = fy_from_key(key)
-        n += upsert(con, "silver.report_monthly", month_tables(md, key, fy), ("doc_key", "table_no", "series", "bs_month"))
-        upsert(con, "silver.report_annual", ldc_summary(md, key, fy), ("doc_key", "metric"))
-        upsert(con, "silver.report_energy_history", energy_peak_history(md, key), ("doc_key", "year"))
+        m = upsert(con, "silver.report_monthly", month_tables(md, key, fy), ("doc_key", "table_no", "series", "bs_month"))
+        a = upsert(con, "silver.report_annual", ldc_summary(md, key, fy), ("doc_key", "metric"))
+        h = upsert(con, "silver.report_energy_history", energy_peak_history(md, key), ("doc_key", "year"))
+        print(f"  {key} (FY {fy}): {m} month-table values, {a} LDC summary, {h} history years", flush=True)
+        n += m
     return n
 
 

@@ -40,7 +40,9 @@ def _ingest(con, root: Path, source_id: str, kind: str, base: str, mapping: dict
              "daily": ",".join(mapping), **extra}
         body = fetch(f"{base}?{urlencode(q)}")
         (raw / f"{p['id']}_{start}_{end}.json").write_bytes(body)
-        n += upsert(con, table, parse_daily(json.loads(body), p["id"], mapping), ("date", "point"))
+        k = upsert(con, table, parse_daily(json.loads(body), p["id"], mapping), ("date", "point"))
+        print(f"  {kind} {p['id']}: {start} .. {end}: {k} rows", flush=True)
+        n += k
     return n
 
 

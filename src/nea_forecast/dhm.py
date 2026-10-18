@@ -33,6 +33,7 @@ def parse_river_watch(html: str) -> list[dict]:
 
 
 def ingest(con, root: Path = Path("data")) -> int:
+    print(f"  dhm: fetching {URL}", flush=True)
     html = fetch(URL)
     raw = Path(root) / "raw" / "dhm"
     raw.mkdir(parents=True, exist_ok=True)

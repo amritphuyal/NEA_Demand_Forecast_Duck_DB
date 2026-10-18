@@ -73,6 +73,13 @@ SELECT bs_year, bs_month, min(date) AS start_date, any_value(fiscal_year) AS fis
 FROM gold.daily_features
 GROUP BY bs_year, bs_month;
 
+-- NEA homepage widget snapshots (one row per distinct set of numbers; figures ~ previous day)
+CREATE TABLE IF NOT EXISTS silver.nea_widget (
+    first_seen TIMESTAMP, values_hash VARCHAR, nea_gen_mwh DOUBLE, nea_sub_gen_mwh DOUBLE, ipp_gen_mwh DOUBLE,
+    import_mwh DOUBLE, export_mwh DOUBLE, interruption_mwh DOUBLE, total_energy_demand_mwh DOUBLE,
+    national_energy_demand_mwh DOUBLE, total_peak_mw DOUBLE, national_peak_mw DOUBLE
+);
+
 CREATE TABLE IF NOT EXISTS silver.macro_yearly (year INTEGER, indicator VARCHAR, name VARCHAR, value DOUBLE);
 
 -- NEA report tables (generic month-wise extraction; pick series in SQL)

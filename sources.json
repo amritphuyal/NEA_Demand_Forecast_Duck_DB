@@ -16,6 +16,20 @@
     "notes": "1-page text PDF: daily energy MWh (11 values) + peak MW table (time + 9 values). No per-plant or reservoir data."
   },
   {
+    "id": "nea_widget",
+    "name": "NEA homepage 'Energy Details' widget (daily snapshot)",
+    "kind": "html",
+    "urls": {
+      "page": "https://nea.org.np/"
+    },
+    "fetcher": "httpx, then Chrome via Playwright (F5)",
+    "history": "from 2026-10-25 onwards (accumulates from our snapshots)",
+    "cadence": "every 3h (row kept only when numbers change)",
+    "status": "verified",
+    "target_table": "silver.nea_widget",
+    "notes": "Undated; most likely previous day. Fields: NEA/subsidiary/IPP gen, import, export, interruption, total & national energy demand (MWh), total & national peak (MW). Balance holds: sources = total demand; total - export = national. Only public daily NEA figures after NDOR stopped (Jan 2025). ldc.nea.org.np checked 2026-10-25: template placeholder, no data."
+  },
+  {
     "id": "nea_ndor_wayback",
     "name": "Legacy NEA LDC NDOR PDFs via Wayback Machine",
     "kind": "json_api+pdf",

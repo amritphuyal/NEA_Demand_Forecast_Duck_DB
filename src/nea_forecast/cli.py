@@ -5,12 +5,13 @@ from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 
-from nea_forecast import calendar, dhm, ndor, nea_docs, ocr, open_meteo, reports, world_bank
+from nea_forecast import calendar, dhm, ndor, nea_docs, nea_widget, ocr, open_meteo, reports, world_bank
 from nea_forecast.lake import connect
 
 # name -> ingest(con) -> rows written
 INGESTERS: dict[str, Callable] = {
     "ndor": ndor.ingest,
+    "widget": nea_widget.ingest,  # daily NEA figures after Jan 2025 (homepage snapshot)
     "docs": nea_docs.ingest,
     "reports": reports.ingest,  # after docs: parses their Markdown
     "ocr": ocr.ingest,  # after docs: balance tables printed as images (~30 s/page, cached)

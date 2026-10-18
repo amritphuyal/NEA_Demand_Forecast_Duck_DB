@@ -40,7 +40,7 @@ All ingested data and results live in DuckLake and are queryable with DuckDB. Re
  site/data/*.parquet ──► Cloudflare Pages (DuckDB-WASM / charts)
 ```
 
-Lakehouse = DuckLake: catalog `data/lake/nea.ducklake` (DuckDB file), Parquet under `data/lake/files/`. Snapshots give time travel (`AT (VERSION => n)`).
+Lakehouse = DuckLake: catalog `data/lake/nea.sqlite` (SQLite: readers work during an ingest), Parquet under `data/lake/data/`. Snapshots give time travel (`AT (VERSION => n)`).
 
 ## Roadmap
 

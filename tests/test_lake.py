@@ -38,3 +38,10 @@ def test_reconnect_persists(tmp_path):
     log(con, "s", "k", "u", "ok")
     con.close()
     assert seen(connect(tmp_path), "s") == {"k"}
+
+
+def test_reader_works_while_writer_connected(tmp_path):
+    w = connect(tmp_path)
+    log(w, "s", "k", "u", "ok")
+    r = connect(tmp_path, read_only=True)  # DuckDB-file catalog would raise a lock error here
+    assert seen(r, "s") == {"k"}

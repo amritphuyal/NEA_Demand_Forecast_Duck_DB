@@ -223,7 +223,7 @@
     "cadence": "one-off",
     "status": "requested",
     "target_table": "silver.river_discharge_daily",
-    "notes": "See docs/outreach/dhm-data-request.md. Loader added in Phase 2 when data arrives."
+    "notes": "Email sent 2026-10-25 (docs/outreach/dhm-data-request.md); awaiting reply. Loader added when data arrives."
   },
   {
     "id": "grid_india_psp",

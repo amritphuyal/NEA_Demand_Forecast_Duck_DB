@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pymupdf
 
-from nea_forecast.lake import upsert
+from nea_forecast.lake import log, seen, upsert
 
 TITLE_RE = re.compile(r"(capacity|energy)\s+balance\s*(?:\((?:mw|gwh)\)|in\s+(?:mw|gwh))?\s*(?:in|of)\s+fy", re.I)
 FY_RE = re.compile(r"FY\s*(\d{4})/(\d{2})")
@@ -115,7 +115,10 @@ def records(series: dict, ok: list[bool], doc_key: str, fy: str, page_no: int, t
 def ingest(con, root: Path = Path("data")) -> int:
     from nea_forecast.reports import fy_from_key
     n, cache = 0, Path(root) / "raw" / "nea_docs" / "ocr"
-    for pdf in sorted((Path(root) / "raw" / "nea_docs" / "annual").glob("*.pdf")):
+    done = seen(con, "ocr")  # to redo after changing OCR logic: DELETE FROM bronze.ingest_log WHERE source='ocr'
+    pdfs = [p for p in sorted((Path(root) / "raw" / "nea_docs" / "annual").glob("*.pdf")) if p.stem not in done]
+    print(f"  ocr: {len(pdfs)} new report(s) to scan, {len(done)} already done", flush=True)
+    for pdf in pdfs:
         for page_no, title in find_pages(pdf):
             unit = "GWh" if title.lower().startswith("energy") else "MW"  # NEA mislabels one energy table "(MW)"
             m = FY_RE.search(title)
@@ -130,4 +133,5 @@ def ingest(con, root: Path = Path("data")) -> int:
             print(f"  ocr {pdf.stem} p{page_no} FY {fy} {unit}: {len(series)} series, {sum(ok)}/12 months valid"
                   f"{f' (rejected BS months {bad})' if bad else ''}, {len(recs)} rows, "
                   f"{'cached' if cached else f'{time.time() - t:.0f}s'}", flush=True)
+        log(con, "ocr", pdf.stem, str(pdf), "ok")
     return n

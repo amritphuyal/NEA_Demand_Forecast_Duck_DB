@@ -11,9 +11,10 @@ def connect(root: Path = Path("data"), read_only: bool = False) -> duckdb.DuckDB
     lake_dir = Path(root) / "lake"
     lake_dir.mkdir(parents=True, exist_ok=True)
     con = duckdb.connect()
-    con.execute("INSTALL ducklake; LOAD ducklake")
-    opts = "READ_ONLY" if read_only else f"DATA_PATH '{lake_dir / 'files'}/'"
-    con.execute(f"ATTACH 'ducklake:{lake_dir / 'nea.ducklake'}' AS lake ({opts})")
+    con.execute("INSTALL ducklake; LOAD ducklake; INSTALL sqlite")
+    # SQLite catalog: readers (nea status, notebooks, the site export) work while an ingest is writing
+    opts = "READ_ONLY" if read_only else f"DATA_PATH '{lake_dir / 'data'}/'"
+    con.execute(f"ATTACH 'ducklake:sqlite:{lake_dir / 'nea.sqlite'}' AS lake ({opts})")
     con.execute("USE lake")
     if not read_only:
         con.execute(SCHEMA.read_text())

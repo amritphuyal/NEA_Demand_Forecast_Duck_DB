@@ -17,7 +17,8 @@ uv run pytest                          # offline tests
 Query the lake from any DuckDB shell:
 
 ```sql
-ATTACH 'ducklake:data/lake/nea.ducklake' AS lake (READ_ONLY);
+INSTALL ducklake; INSTALL sqlite;
+ATTACH 'ducklake:sqlite:data/lake/nea.sqlite' AS lake (READ_ONLY);  -- works even while an ingest runs
 FROM lake.gold.daily_features LIMIT 5;
 ```
 

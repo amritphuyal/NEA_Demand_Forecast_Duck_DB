@@ -81,30 +81,6 @@ CREATE TABLE IF NOT EXISTS silver.report_annual (
     doc_key VARCHAR, fy VARCHAR, metric VARCHAR, value DOUBLE, unit VARCHAR, date_bs VARCHAR
 );
 
--- Monthly balance per FY from annual reports: one row per (fy, bs_month, unit MW|GWh).
--- Only tables that carry a national/total demand row (capacity / energy balance tables).
-CREATE VIEW IF NOT EXISTS gold.report_monthly_balance AS
-WITH t AS (
-    SELECT doc_key, table_no,
-           CASE WHEN bool_or(series ILIKE '%peak%') THEN 'MW'
-                WHEN bool_or(series ILIKE '%energy%' OR series ILIKE 'total demand%') THEN 'GWh' END AS unit
-    FROM silver.report_monthly
-    GROUP BY doc_key, table_no
-    HAVING bool_or(series ILIKE '%national%demand%' OR series ILIKE 'total demand%')
-)
-SELECT r.fy, r.bs_month, t.unit,
-       max(value) FILTER (series ILIKE '%national%demand%' OR series ILIKE 'net demand%') AS national_demand,
-       max(value) FILTER (series ILIKE '%system%demand%' OR series ILIKE 'total demand%') AS system_demand,
-       max(value) FILTER (series ILIKE 'import%') AS import,
-       max(value) FILTER (series ILIKE 'export%') AS export,
-       max(value) FILTER (series ILIKE '%storage%') AS storage,
-       max(value) FILTER (series ILIKE 'ipp%') AS ipp,
-       max(value) FILTER (series ILIKE '%interruption%') AS interruption,
-       any_value(r.doc_key) AS doc_key
-FROM silver.report_monthly r JOIN t USING (doc_key, table_no)
-WHERE t.unit IS NOT NULL
-GROUP BY r.fy, r.bs_month, t.unit;
-
 CREATE TABLE IF NOT EXISTS silver.report_energy_history (
     doc_key VARCHAR, year INTEGER, fy VARCHAR, nea_gwh DOUBLE, nea_subsidiary_gwh DOUBLE, ipp_gwh DOUBLE,
     import_gwh DOUBLE, total_gwh DOUBLE, national_peak_mw DOUBLE, system_peak_mw DOUBLE
@@ -119,3 +95,49 @@ FROM (SELECT * FROM silver.report_energy_history
       QUALIFY row_number() OVER (PARTITION BY year ORDER BY doc_key DESC) = 1) h
 LEFT JOIN silver.report_annual e ON e.fy = h.fy AND e.metric = 'annual national energy demand'
 LEFT JOIN silver.report_annual p ON p.fy = h.fy AND p.metric = 'annual national peak demand';
+
+-- Monthly balance per FY from annual reports: one row per (fy, bs_month, unit MW|GWh), from capacity /
+-- energy balance tables (text layer or OCR). A month is kept only if the table's own arithmetic holds
+-- (sources ~ system demand, or ~ national demand + export; 1.5% for NEA's rounding); OCR wins over text.
+CREATE VIEW IF NOT EXISTS gold.report_monthly_balance AS
+WITH t AS (
+    SELECT doc_key, table_no,
+           CASE WHEN bool_or(series ILIKE '%peak%') THEN 'MW'
+                WHEN bool_or(series ILIKE '%energy%' OR series ILIKE 'total demand%') THEN 'GWh' END AS unit
+    FROM silver.report_monthly
+    GROUP BY doc_key, table_no
+    HAVING bool_or(series ILIKE '%national%demand%' OR series ILIKE 'total demand%')
+),
+p AS (
+    SELECT r.fy, r.bs_month, t.unit, r.doc_key, r.table_no >= 10000 AS is_ocr,
+           max(value) FILTER (series ILIKE '%national%demand%' OR series ILIKE 'net demand%') AS national_demand,
+           max(value) FILTER (series ILIKE '%system%demand%' OR series ILIKE 'total demand%') AS system_demand,
+           max(value) FILTER (series ILIKE 'import%') AS import,
+           max(value) FILTER (series ILIKE 'export%') AS export,
+           max(value) FILTER (series ILIKE '%storage%') AS storage,
+           max(value) FILTER (series ILIKE 'ipp%') AS ipp,
+           max(value) FILTER (series ILIKE '%interruption%') AS interruption,
+           sum(value) FILTER (series ILIKE 'ipp%' OR series ILIKE '%subsidiary%' OR series ILIKE '%ror%'
+                              OR series ILIKE 'import%' OR series ILIKE '%storage%' OR series ILIKE '%solar%'
+                              OR series ILIKE '%thermal%' OR series ILIKE '%interruption%') AS sources
+    FROM silver.report_monthly r JOIN t USING (doc_key, table_no)
+    WHERE t.unit IS NOT NULL
+    GROUP BY r.fy, r.bs_month, t.unit, r.doc_key, r.table_no
+),
+m AS (
+    SELECT fy, bs_month, unit, national_demand, system_demand, import, export, storage, ipp, interruption,
+           CASE WHEN is_ocr THEN 'ocr' ELSE 'text' END AS method, doc_key
+    FROM p
+    WHERE abs(sources - system_demand) <= greatest(5, 0.015 * system_demand)
+       OR abs(sources - national_demand - export) <= greatest(5, 0.015 * (national_demand + export))
+    QUALIFY row_number() OVER (PARTITION BY fy, bs_month, unit ORDER BY is_ocr DESC) = 1
+)
+-- Year-level guard: consistently mislabeled rows can still balance (FY 2077/78), so the FY must also agree
+-- with the annual history chart: MW national peak within 5%; GWh system energy (x 12/months) within 10%.
+SELECT m.* FROM m LEFT JOIN gold.annual_history h ON h.fy = m.fy
+WINDOW w AS (PARTITION BY m.fy, m.unit)
+QUALIFY h.fy IS NULL
+     OR (m.unit = 'MW' AND abs(max(m.national_demand) OVER w - coalesce(h.ldc_national_peak_mw, h.national_peak_mw))
+                          <= 0.05 * coalesce(h.ldc_national_peak_mw, h.national_peak_mw))  -- LDC beats chart (FY 2079/80)
+     OR (m.unit = 'GWh' AND abs(sum(m.system_demand) OVER w * 12 / count(*) OVER w - h.total_gwh) <= 0.10 * h.total_gwh);
+

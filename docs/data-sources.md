@@ -23,6 +23,17 @@ Old path `nea.org.np/admin/assets/uploads/ldc/NDOR {BS}.pdf` (also `www.`, `cms.
 - Annual: https://nea.org.np/en/category/annual-reports (4 pages; e.g. https://nea.org.np/detail/annual-report-20252026).
 - Stored as PDF + Markdown (pymupdf4llm). Which tables hold monthly/annual peak & energy: recorded here after Task 7.
 
+## Data extracted from NEA reports — `verified` (Phase 2, `nea ingest reports ocr`)
+
+| Table | What | Coverage | How validated |
+|---|---|---|---|
+| `gold.annual_history` | Annual NEA / subsidiary / IPP / **import** / total energy (GWh), **national peak** (+ system peak from 2022) MW | 2013 → 2026 (FY 2069/70 → 2082/83) | sources = total per row; identical across every report repeating a year; FY 2079/80 chart peaks disagree with LDC (LDC kept as `ldc_national_peak_mw`) |
+| `gold.report_monthly_balance` | Monthly national / system demand, **import**, **export**, storage, IPP, interruption — MW and GWh | FY 2078/79 (partial) → 2082/83 | per-month table arithmetic + FY total vs annual history; OCR (RapidOCR) preferred, text fallback |
+| `silver.report_annual` | LDC summary: annual system/national peak MW (+ date) and energy GWh | FY 2078/79 → 2082/83 | — |
+| `silver.report_monthly` | Every month-wise table in every report (raw, generic): incl. per-station monthly generation (Kulekhani etc.), import/export by border point | varies | none (raw) |
+
+Not extractable: Kulekhani reservoir water level (chart image only). Monthly operational reports: 2 exist (2080-10/11), day-wise; NMOR 2080_02..09 404 on NEA's server. FY 2077/78 monthly tables dropped (balanced but mislabeled).
+
 ## Open-Meteo weather (ERA5) — `verified`
 
 `https://archive-api.open-meteo.com/v1/archive?latitude=..&longitude=..&start_date=..&end_date=..&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=Asia/Kathmandu`. 1940→, ~5-day lag, no key (non-commercial). Points: Kathmandu + Terai cities (Biratnagar, Birgunj, Bhairahawa, Nepalgunj, Dhangadhi).

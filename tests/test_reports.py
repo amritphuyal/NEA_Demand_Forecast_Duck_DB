@@ -55,14 +55,20 @@ def test_ldc_summary():
     assert next(r for r in got if r["unit"] == "MW")["date_bs"] == "2083-03-22"
 
 
-def test_gold_monthly_balance(tmp_path):
+MONTHS_HDR = "||Shrawan|Bhadra|Ashwin|Kartik|Mangshir|Poush|Magh|Falgun|Chaitra|Baishakh|Jestha|Ashadh|"
+BALANCED = "\n".join([MONTHS_HDR, "|---" * 13 + "|",
+                      "|IPP|" + "|".join(["1000"] * 12) + "|", "|IMPORT|" + "|".join(["300"] * 12) + "|",
+                      "|EXPORT|" + "|".join(["100"] * 12) + "|",
+                      "|MONTHLY NATIONAL PEAK DEMAND|" + "|".join(["1200"] * 11 + ["1500"]) + "|"])  # Ashadh broken
+
+
+def test_gold_monthly_balance_keeps_only_balanced_months(tmp_path):
     from nea_forecast.lake import connect, upsert
     con = connect(tmp_path)
-    upsert(con, "silver.report_monthly", reports.month_tables(ROW_TABLE, "k", "2082/83"),
+    upsert(con, "silver.report_monthly", reports.month_tables(BALANCED, "k", "2082/83"),
            ("doc_key", "table_no", "series", "bs_month"))
-    got = con.execute("select unit, national_demand, import from gold.report_monthly_balance "
-                      "where fy='2082/83' and bs_month=10").fetchone()
-    assert got == ("MW", 2256, 295)
+    got = dict(con.execute("select bs_month, national_demand from gold.report_monthly_balance").fetchall())
+    assert len(got) == 11 and 3 not in got and got[10] == 1200  # Ashadh (3) fails 1000+300 = 1200+100
 
 
 CHART = """<!-- Start of picture text -->
@@ -95,3 +101,13 @@ def test_gold_annual_history_newest_report_wins(tmp_path):
     upsert(con, "silver.report_energy_history", old + new, ("doc_key", "year"))
     rows = dict(con.execute("select year, import_gwh from gold.annual_history").fetchall())
     assert rows[2025] == 9.0 and rows[2026] == 1171
+
+
+def test_gold_prefers_ocr_table(tmp_path):
+    from nea_forecast.lake import connect, upsert
+    con = connect(tmp_path)
+    text = reports.month_tables(BALANCED, "k", "2082/83")
+    ocr_rows = [{**r, "table_no": 10174, "value": r["value"] * 2} for r in text]  # still balanced
+    upsert(con, "silver.report_monthly", text + ocr_rows, ("doc_key", "table_no", "series", "bs_month"))
+    assert con.execute("select national_demand, method from gold.report_monthly_balance where bs_month=10"
+                       ).fetchone() == (2400, "ocr")

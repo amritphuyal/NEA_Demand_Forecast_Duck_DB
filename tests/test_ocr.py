@@ -51,3 +51,36 @@ def test_records_keep_only_valid_months():
     recs = ocr.records(series, ok, "annual-report-20232024", "2080/81", 187, "Capacity Balance (MW)")
     assert {r["bs_month"] for r in recs} == set(FY_MONTHS[1:])
     assert all(r["table_no"] == 10187 for r in recs)
+
+
+GWH_UNLABELED = boxes([
+    "IPP 831.31 785.85 864.78 798.99 629.19 481.92 455.70 428.61 398.00 472.00 966.43 1103.39 684.68",
+    "NEA SUBSIDIARY 538.00 538.00 538.00 538.00 535.20 351.00 179.90 201.70 155.00 191.00 434.00 538.00 394.82",
+    "NEAROR&PROR 421.11 421.55 428.37 422.74 428.21 408.99 379.83 390.47 272.84 289.43 433.02 428.86 393.79",
+    "IMPORT 76.70 72.80 70.20 14.30 39.10 239.69 515.70 470.00 665.00 562.00 57.00 51.00 236.12",
+    "STORAGE 101.20 99.20 60.00 0.00 97.00 98.40 94.70 26.30 98.90 100.00 75.30 49.60 75.05",
+    "INTERRUPTION 0.00 90.00 0.00 0.00 0.00 260.00 170.00 180.00 225.00 325.00 100.00 0.00 112.50",
+    "1968.33 2007.40 1961.35 1774.03 1728.81 1839.99 1795.83 1697.08 1815.05 1938.68 2065.65 2171.15 1896.94",
+    "EXPORT 267.80 200.00 241.00 408.00 199.00 0.00 0.00 0.00 0.00 0.00 195.00 300.00 150.90",
+    "1754.081814.65 1756.87 1464.63 1594.71 1839.99 1795.831697.081815.05 1938.68 1986.39 1947.80 1783.81",
+])
+
+
+def test_unlabeled_rows_named_by_arithmetic_and_merged_numbers_split():
+    series, ok = ocr.balance(ocr.rows(GWH_UNLABELED), "MW")
+    assert max(series["MONTHLY SYSTEM PEAK DEMAND"]) == 2171.15  # == sum of sources
+    assert series["MONTHLY NATIONAL PEAK DEMAND"][:2] == [1754.08, 1814.65]  # split "1754.081814.65"
+    assert max(series["MONTHLY NATIONAL PEAK DEMAND"]) == 1986.39
+    assert sum(ok) == 12
+
+
+def test_bare_nea_label_is_subsidiary():
+    b = [x if x[3] != "SUBSIDIARY" else (x[0], x[1], x[2], "NEA") for x in MW]
+    series, ok = ocr.balance(ocr.rows(b), "MW")
+    assert series["NEA SUBSIDIARY"][0] == 536 and all(ok)
+
+
+def test_label_glued_to_first_number():
+    b = boxes(["NEAROR&PROR290.92 304.66 241.96 257.00 250.94 201.20 160.28 141.62 141.77 172.23 270.43 272.24 2705.23"])
+    series, _ = ocr.balance(ocr.rows(b), "GWh")
+    assert series["NEA ROR & PROR"][0] == 290.92 and len(series["NEA ROR & PROR"]) == 12

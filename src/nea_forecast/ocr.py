@@ -2,7 +2,8 @@
 
 Picked over OnnxTR (same digits, ~10x slower: 313 s vs 29 s per page) and Tesseract (needs a system
 package, weaker on tables). OCR output is never trusted blindly: a month is kept only if the table's
-own arithmetic holds (sources == national demand + export).
+own arithmetic holds (sources ~ system demand, sources ~ national + export, national + export = system;
+whichever identities the table obeys in most months must hold in that month).
 """
 import json
 import re
@@ -16,20 +17,22 @@ from nea_forecast.lake import upsert
 TITLE_RE = re.compile(r"(capacity|energy)\s+balance\s*(?:\((?:mw|gwh)\)|in\s+(?:mw|gwh))?\s*(?:in|of)\s+fy", re.I)
 FY_RE = re.compile(r"FY\s*(\d{4})/(\d{2})")
 FY_MONTHS = [4, 5, 6, 7, 8, 9, 10, 11, 12, 1, 2, 3]  # table columns run Shrawan .. Ashadh (+ average)
-NUM_RE = re.compile(r"^\d[\d,]*(\.\d+)?$")
+# OCR sometimes drops the space between decimals: "1754.081814.65" -> 1754.08, 1814.65
+NUM_RE = re.compile(r"\d[\d,]*\.\d{2}|\d[\d,]*")  # NEA tables use 0 or 2 decimals
 SOURCES = ["IPP", "NEA SUBSIDIARY", "NEA ROR & PROR", "IMPORT", "STORAGE", "SOLAR", "THERMAL", "INTERRUPTION"]
-LABELS = [("NEA SUBSIDIARY", r"SUBSID"), ("NEA ROR & PROR", r"ROR"), ("IPP", r"\bIPP"), ("IMPORT", r"IMPORT"),
+LABELS = [("NEA SUBSIDIARY", r"SUBSID"), ("NEA ROR & PROR", r"ROR"), ("NEA SUBSIDIARY", r"^NEA$"), ("IPP", r"\bIPP"), ("IMPORT", r"IMPORT"),
           ("STORAGE", r"STORAGE"), ("SOLAR", r"SOLAR"), ("THERMAL", r"THERMAL"), ("INTERRUPTION", r"INTERRUP"),
           ("MONTHLY NATIONAL {} DEMAND", r"NATIONAL"), ("MONTHLY SYSTEM {} DEMAND", r"SYSTEM"), ("EXPORT", r"EXPORT")]
 
 
 def find_pages(pdf: Path) -> list[tuple[int, str]]:
-    """(page, title) of balance tables that exist only as images (no month names in the page text)."""
+    """(page, title) of titled balance tables. OCR'd even when text exists: some reports' text layer
+    jumbles the columns (FY 2077/78, 2078/79); the arithmetic check decides what is kept."""
     out = []
     for page in pymupdf.open(pdf):
         text = page.get_text()
         m = TITLE_RE.search(text)
-        if m and page.get_images() and not re.search(r"shrawan|bhadra|kartik|poush|chaitra", text, re.I):
+        if m:
             out.append((page.number, re.sub(r"\s+", " ", text[m.start():m.start() + 60]).strip()))
     return out
 
@@ -64,23 +67,42 @@ def rows(boxes: list[tuple]) -> list[list[str]]:
 
 
 def balance(text_rows: list[list[str]], unit: str) -> tuple[dict[str, list[float]], list[bool]]:
-    """Series (12 FY-ordered months) by canonical label + per-month validity."""
+    """Series (12 FY-ordered months) by canonical label + per-month validity. Rows whose label OCR lost
+    are named by arithmetic: the one equal to the sum of sources is system demand, the other national."""
     kind = "PEAK" if unit == "MW" else "ENERGY"
-    series = {}
+    nat_k, sys_k = f"MONTHLY NATIONAL {kind} DEMAND", f"MONTHLY SYSTEM {kind} DEMAND"
+    tol = 5 if unit == "MW" else 2
+    series, unlabeled = {}, []
     for r in text_rows:
-        nums = [float(t.replace(",", "")) for t in r if NUM_RE.match(t)]
-        label = " ".join(t for t in r if not NUM_RE.match(t)).upper()
+        r = [p for t in r for p in re.split(r"(?<=[^\d\s,.])(?=\d)", t)]  # "NEAROR&PROR290.92" -> label, number
+        nums = [float(x.replace(",", "")) for t in r if t[:1].isdigit() for x in NUM_RE.findall(t)]
+        label = " ".join(t for t in r if not t[:1].isdigit()).upper()
         if len(nums) < 12:
             continue
-        for name, rx in LABELS:
-            if re.search(rx, label):
-                series.setdefault(name.format(kind), nums[:12])
-                break
-    nat, exp = series.get(f"MONTHLY NATIONAL {kind} DEMAND"), series.get("EXPORT")
+        name = next((n.format(kind) for n, rx in LABELS if re.search(rx, label)), None)
+        if name:
+            series.setdefault(name, nums[:12])
+        else:
+            unlabeled.append(nums[:12])
     src = [s for s in SOURCES if s in series]
-    tol = 5 if unit == "MW" else 2
-    ok = [bool(nat and exp and src) and abs(sum(series[s][i] for s in src) - nat[i] - exp[i]) <= tol
-          for i in range(12)]
+    src_sum = [sum(series[s][i] for s in src) for i in range(12)]
+    for vals in unlabeled:
+        is_sys = sum(abs(vals[i] - src_sum[i]) <= tol for i in range(12)) >= 6
+        key = sys_k if is_sys and sys_k not in series else nat_k if nat_k not in series else None
+        if key:
+            series[key] = vals
+    nat, exp, sys_ = series.get(nat_k), series.get("EXPORT"), series.get(sys_k)
+    # NEA rounds GWh source rows: allow 1.5% there; demand rows themselves add up exactly
+    src_tol = (lambda v: tol) if unit == "MW" else (lambda v: max(tol, 0.015 * v))
+    checks = []  # identities this table actually obeys (most months); each then must hold every month
+    if src and sys_:
+        checks.append(lambda i: abs(src_sum[i] - sys_[i]) <= src_tol(sys_[i]))
+    if src and nat and exp:
+        checks.append(lambda i: abs(src_sum[i] - nat[i] - exp[i]) <= src_tol(nat[i] + exp[i]))
+    if sys_ and nat and exp:
+        checks.append(lambda i: abs(nat[i] + exp[i] - sys_[i]) <= tol)
+    checks = [c for c in checks if sum(map(c, range(12))) >= 9] or checks[:1]
+    ok = [bool(checks) and all(c(i) for c in checks) for i in range(12)]
     return series, ok
 
 

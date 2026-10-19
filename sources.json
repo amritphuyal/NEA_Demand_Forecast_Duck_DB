@@ -284,7 +284,7 @@
     "cadence": "monthly",
     "status": "verified",
     "target_table": "silver.india_trade_monthly",
-    "notes": "India export to Nepal = Nepal import (direction nepal_import); India import = nepal_export. MWh (TKW) + INR crore. Customs booking is lumpy (all-zero months, e.g. Feb 2018) - FY-to-date total stored too. vs NEA annual import: 2021 exact, most years within 5-19%, 2023 +32%. Raw: one CSV per query in data/raw/india_trade/."
+    "notes": "India export to Nepal = Nepal import (direction nepal_import); India import = nepal_export. MWh (TKW) + INR crore. Customs booking is lumpy (all-zero months, e.g. Feb 2018) - FY-to-date total stored too. vs NEA annual import: 2021 exact, most years within 5-19%, 2023 +32%. Raw: one JSON per query in data/raw/india_trade/ (result table only, one record per country, numbers as numbers)."
   },
   {
     "id": "cerc_mmc",

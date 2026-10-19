@@ -2,7 +2,7 @@
 India's export to Nepal = Nepal import; India's import from Nepal = Nepal export. Monthly, 2018 -> ~2 months
 ago: fills the Jan 2025+ gap left by NEA's daily reports. Customs booking months are lumpy, so the
 Indian-FY-to-date total (Apr..month) is stored too; quantity unit TKW = MWh."""
-import csv
+import json
 import re
 import threading
 import time
@@ -34,13 +34,36 @@ def _cells(row_html: str) -> list[str]:
 
 
 def table_rows(html: str) -> list[list[str]]:
-    """The result table as rows of cells (header + one row per country + Total)."""
-    return [c for c in (_cells(r) for r in re.findall(r"<tr[^>]*>(.*?)</tr>", html, re.S)) if any(c)]
+    """The result table as rows of cells (header + one row per country + Total). Stops at the first
+    other row: the page also holds a JS row template (' + item.HSCODE + ') that is not data."""
+    rows = [c for c in (_cells(r) for r in re.findall(r"<tr[^>]*>(.*?)</tr>", html, re.S)) if any(c)]
+    start = next((i for i, r in enumerate(rows) if "Country" in r), None)
+    if start is None:
+        return []
+    out = [rows[start]]
+    for r in rows[start + 1:]:
+        if not (r[0].isdigit() or "Total" in r):
+            break
+        out.append(r)
+    return out
 
 
-def save_csv(rows: list[list[str]], path: Path) -> None:
-    with open(path, "w", newline="") as f:
-        csv.writer(f).writerows(rows)
+def _num(c: str):
+    v = c.replace(",", "")
+    return int(v) if re.fullmatch(r"-?\d+", v) else float(v) if re.fullmatch(r"-?\d*\.?\d+", v) else c
+
+
+def save_json(rows: list[list[str]], path: Path, direction: str, measure: str, m: date) -> None:
+    """Readable raw copy: one record per country row, numbers as numbers (second %Growth -> '%Growth (FY)')."""
+    cols = [c if rows[0].index(c) == i else f"{c} (FY)" for i, c in enumerate(rows[0])] if rows else []
+    with open(path, "w") as f:
+        json.dump({"direction": direction, "measure": measure, "month": f"{m:%Y-%m}", "columns": cols,
+                   "rows": [dict(zip(cols, map(_num, r))) for r in rows[1:]]}, f, indent=1)
+
+
+def load_json(path: Path) -> list[list[str]]:
+    d = json.loads(path.read_text())
+    return [d["columns"]] + [[str(v) for v in r.values()] for r in d["rows"]]
 
 
 def parse(html: str, direction: str, measure: str) -> list[dict]:
@@ -103,15 +126,14 @@ _local = threading.local()
 
 
 def _query_threaded(args: tuple) -> tuple:
-    direction, measure, m, csv_path = args
-    if csv_path.exists() and m < _today() - timedelta(days=RECHECK_DAYS):  # saved earlier: no refetch
-        with open(csv_path, newline="") as f:
-            return args, list(csv.reader(f)), None
+    direction, measure, m, path = args
+    if path.exists() and m < _today() - timedelta(days=RECHECK_DAYS):  # saved earlier: no refetch
+        return args, load_json(path), None
     if not hasattr(_local, "client"):
         _local.client = httpx.Client(headers=HEADERS, timeout=60, follow_redirects=True)
     try:
         rows = table_rows(query(_local.client, direction, measure, m))
-        save_csv(rows, csv_path)  # readable raw copy
+        save_json(rows, path, direction, measure, m)
         return args, rows, None
     except Exception as e:  # reported per month, run continues
         return args, None, e
@@ -135,7 +157,7 @@ def ingest(con, root: Path = Path("data")) -> int:
                     covered |= {m, date(m.year - 1, m.month, 1)}
             todo = chosen
             print(f"  india trade {direction} {measure}: {len(todo)} quer(ies)", flush=True)
-            jobs += [(direction, measure, m, raw / f"{direction}_{measure}_{m:%Y_%m}.csv") for m in todo]
+            jobs += [(direction, measure, m, raw / f"{direction}_{measure}_{m:%Y_%m}.json") for m in todo]
     n, done, rows = 0, 0, []
     with ThreadPoolExecutor(WORKERS) as ex:
         for (direction, measure, m, _), table, err in ex.map(_query_threaded, jobs):

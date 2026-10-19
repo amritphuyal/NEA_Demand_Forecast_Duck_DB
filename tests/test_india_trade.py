@@ -16,6 +16,16 @@ def test_parse_nepal_row_gives_two_years():
     ]
 
 
+def test_raw_json_drops_js_template_and_round_trips(tmp_path):
+    html = TBL + "<table><tr><td>HSCode</td></tr><tr><td>' + item.HSCODE + '</td></tr></table>"
+    rows = india_trade.table_rows(html)
+    assert rows[0][1] == "Country" and rows[-1][1] == "Total"
+    india_trade.save_json(rows, tmp_path / "x.json", "nepal_import", "mwh", date(2025, 1, 1))
+    assert india_trade.parse_rows(india_trade.load_json(tmp_path / "x.json"), "nepal_import", "mwh") == \
+        india_trade.parse(TBL, "nepal_import", "mwh")
+
+
+
 def test_no_nepal_row_means_zero_but_empty_table_means_unpublished():
     no_nepal = TBL.replace("NEPAL", "MALDIVES")
     assert [r["month_value"] for r in india_trade.parse(no_nepal, "nepal_import", "mwh")] == [0, 0]

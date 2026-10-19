@@ -46,8 +46,8 @@ Lakehouse = DuckLake: catalog `data/lake/nea.sqlite` (SQLite: readers work durin
 
 | Phase | Scope | Plan | Status |
 |---|---|---|---|
-| 1 | Ingestion + DuckLake (NDOR, Wayback, NEA reports → Markdown, weather, discharge, DHM gauges, calendar, gold views) | `docs/superpowers/plans/2026-10-25-phase1-ingestion-lakehouse.md` | in progress |
-| 2 | Parse monthly/yearly/annual report tables → `silver.nea_monthly`; DHM manual data loader; EDA | written after Phase 1 | — |
+| 1 | Ingestion + DuckLake (NDOR, NEA reports → Markdown + monthly/annual tables + OCR, weather, discharge, NEA widget, India customs + CERC, World Bank, calendar, gold views) | `docs/superpowers/plans/2026-10-25-phase1-ingestion-lakehouse.md` | done 2026-10-25 (DHM gauges pending: site down) |
+| 2 | EDA: seasonality, weather/holiday/discharge effects, import-source reconciliation, gaps → model inputs; DHM manual loader when data arrives | `docs/superpowers/plans/2026-10-25-phase2-eda.md` | planning |
 | 3 | Models + backtests → `ml.*` | written after EDA | — |
 | 4 | `nea export` → Parquet → Cloudflare Pages site | later | — |
 

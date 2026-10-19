@@ -81,6 +81,9 @@ def parse_detail(html: str) -> str:
     m = DETAIL_PDF_RE.search(html)
     if not m and DETAIL_HTML_RE.search(html):
         raise NotFound("report posted as .html only (NEA serves Access Restricted): known gap")
+    if not m and "Nepal Daily Operational Report" in html:
+        # real post, published without attachment (2081-08-15: empty body, PDF paths 404): known gap
+        raise NotFound("post has no attachment: known gap")
     if not m:
         raise ParseError("no NDOR pdf link on detail page")
     return m.group(1).replace(" ", "%20")

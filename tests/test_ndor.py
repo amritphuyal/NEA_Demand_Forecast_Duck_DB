@@ -78,6 +78,13 @@ def test_parse_detail_html_only_is_not_found():
         ndor.parse_detail('<a href="https://transd.nea.org.np/uploads/shares/Daily_op_reports/NDOR%202080_06_07.html">x</a>')
 
 
+def test_parse_detail_empty_post_is_not_found_but_other_page_is_error():
+    with pytest.raises(ndor.NotFound):
+        ndor.parse_detail("<title>Nepal Daily Operational Report 2081_08_15 - || NEA ||</title>")
+    with pytest.raises(ParseError):
+        ndor.parse_detail("<html>layout changed</html>")
+
+
 def test_parse_detail():
     html = '<a href="https://transd.nea.org.np/uploads/shares/Daily_op_reports/NDOR%202081_09_27%20rev1.pdf">Open</a>'
     assert ndor.parse_detail(html).endswith("rev1.pdf")

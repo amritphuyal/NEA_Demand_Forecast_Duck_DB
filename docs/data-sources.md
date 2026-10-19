@@ -38,9 +38,9 @@ Not extractable: Kulekhani reservoir water level (chart image only). Monthly ope
 
 `https://archive-api.open-meteo.com/v1/archive?latitude=..&longitude=..&start_date=..&end_date=..&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=Asia/Kathmandu`. 1940→, ~5-day lag, no key (non-commercial). Points: Kathmandu + Terai cities (Biratnagar, Birgunj, Bhairahawa, Nepalgunj, Dhangadhi).
 
-## Open-Meteo Flood / GloFAS river discharge — `needs_user_verification`
+## Open-Meteo Flood / GloFAS river discharge — `verified`
 
-`https://flood-api.open-meteo.com/v1/flood?latitude=..&longitude=..&daily=river_discharge&start_date=..&end_date=..`. Daily m³/s, 1984→, ~5 km grid. Points at major hydro sites (see `sources.json`); coordinates approximate — each must show monsoon peak ≫ winter or it's off-river.
+`https://flood-api.open-meteo.com/v1/flood?latitude=..&longitude=..&daily=river_discharge&start_date=..&end_date=..`. Daily m³/s, 1984→, ~5 km grid. Points: 3 basin outlets (Karnali, Koshi, Narayani → `discharge_index`) + 5 plants (Kali Gandaki, Trishuli, Marsyangdi, Upper Tamakoshi, Sunkoshi), each snapped to its main-channel cell (5×5 search ±0.1°, mean flow 2015–24 vs known river size). Kulekhani dropped: catchment too small for the grid. Modelled flow, not gauge truth → validate with DHM data.
 
 ## DHM river-watch — `unavailable` (site down since 2026-10-25, reportedly PHP vulnerability)
 
@@ -56,7 +56,7 @@ Draft: `docs/outreach/dhm-data-request.md`. Top-5 sites: Kulekhani reservoir, Ta
 |---|---|---|---|
 | Kathmandu + Terai temperature | winter heating / summer cooling load | Open-Meteo ERA5 | verified |
 | Holidays & festivals (Dashain, Tihar) | demand dips | `holidays` package (`NP`) | verified |
-| River discharge at hydro sites | domestic generation capacity | GloFAS | needs_user_verification |
+| River discharge at hydro sites | domestic generation capacity | GloFAS | verified |
 | GloFAS seasonal discharge forecast (7 months) | future winter supply driver | Open-Meteo flood API | planned |
 | Kulekhani reservoir level | storage for winter peaks | news only, no feed; ask NEA/DHM | requested |
 | India exchange after Jan 2025 | import target when NDOR missing | **India customs TradeStat** (monthly 2018 →, `silver.india_trade_monthly`) + **CERC Table 46** IEX buy/sell + price (2023 →, `silver.iex_cross_border_monthly`) — verified. Grid-India daily PSP | unavailable (2026-10-25: `report.grid-india.in` gone from DNS, `grid-india.in` resets connections; user checking in browser) |

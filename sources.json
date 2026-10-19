@@ -155,13 +155,12 @@
     "cadence": "daily",
     "status": "verified",
     "target_table": "silver.river_discharge_daily",
-    "notes": "~5 km GloFAS grid. basin=true points (Koshi, Narayani/Gandaki, Karnali) drain most Nepal hydro and form gold discharge_index; checked 2026-10-25 by snapping to the max-flow cell. Per-plant points are approximate: Marsyangdi/Trishuli plausible, others need_user_verification (snapping jumped to other rivers).",
+    "notes": "~5 km GloFAS grid. basin=true points (Koshi, Narayani/Gandaki, Karnali) drain most Nepal hydro and form gold discharge_index. Plant points checked 2026-10-25: searched the 5x5 cells (+-0.1 deg) around each plant and took the main-channel cell (mean flow 2015-24): Kali Gandaki ~430, Upper Tamakoshi ~69 (intake, not downstream), Sunkoshi ~91, Trishuli ~170, Marsyangdi ~240 m3/s. Kulekhani dropped: 126 km2 catchment is below GloFAS resolution (nearest high cells are other rivers); its rain is covered by Kathmandu weather.",
     "points": [
       {
         "id": "kali_gandaki_a",
-        "lat": 27.98,
-        "lon": 83.58,
-        "needs_user_verification": true
+        "lat": 27.93,
+        "lon": 83.58
       },
       {
         "id": "trishuli",
@@ -175,21 +174,13 @@
       },
       {
         "id": "upper_tamakoshi",
-        "lat": 27.9,
-        "lon": 86.21,
-        "needs_user_verification": true
-      },
-      {
-        "id": "kulekhani",
-        "lat": 27.59,
-        "lon": 85.15,
-        "needs_user_verification": true
+        "lat": 27.85,
+        "lon": 86.16
       },
       {
         "id": "sunkoshi",
         "lat": 27.76,
-        "lon": 85.86,
-        "needs_user_verification": true
+        "lon": 85.81
       },
       {
         "id": "karnali_chisapani",

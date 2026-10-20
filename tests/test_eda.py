@@ -62,3 +62,17 @@ def test_discharge_lag_by_date_survives_gaps(tmp_path):
     r = eda.discharge_lag(con, None)
     assert r["gen"]["best_lag"] == 7 and r["gen"]["corr"] > 0.99
     assert r["import"]["best_lag"] == 3 and r["import"]["corr"] < -0.99
+
+
+def test_growth_gdp_elasticity_and_low_n(tmp_path):
+    con = connect(tmp_path)
+    gdp = {2015 + i: 100 * 1.05 ** i for i in range(10)}
+    upsert(con, "silver.report_energy_history", [
+        {"doc_key": "d", "year": y, "fy": f"{y + 56}/{(y + 57) % 100:02d}", "nea_gwh": None, "nea_subsidiary_gwh": None,
+         "ipp_gwh": None, "import_gwh": 0.1 * g ** 1.5, "total_gwh": g ** 1.5, "national_peak_mw": g * 10,
+         "system_peak_mw": None} for y, g in gdp.items()], ("year",))
+    upsert(con, "silver.macro_yearly", [{"year": y, "indicator": "NY.GDP.MKTP.KD", "name": "gdp", "value": g}
+                                        for y, g in gdp.items()], ("year", "indicator"))
+    r = eda.growth(con, None)
+    assert r["gdp_elasticity"] == pytest.approx(1.5) and r["low_n"] is True and r["n"] == 10
+    assert r["peak_cagr_pct"] == pytest.approx(5.0)

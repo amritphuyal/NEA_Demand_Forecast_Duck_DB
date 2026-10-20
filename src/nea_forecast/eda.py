@@ -116,7 +116,33 @@ def discharge_lag(con, out: Path | None, max_lag: int = 30) -> dict:
     return res
 
 
-QUESTIONS = [seasonality, temperature, discharge_lag]
+def growth(con, out: Path | None) -> dict:
+    """Annual trend: energy and peak CAGR, GDP elasticity of energy (log-log slope), import share per year.
+    One series (the reports' multi-year chart) so years stay comparable."""
+    a = _rows(con, "SELECT year, total_gwh, national_peak_mw, import_gwh, gdp_usd_2015 FROM gold.annual_history "
+                   "WHERE total_gwh > 0 ORDER BY year")
+    cagr = lambda k: (_r(((a[-1][k] / a[0][k]) ** (1 / (a[-1]["year"] - a[0]["year"])) - 1) * 100)  # noqa: E731
+                      if len(a) > 1 and a[0][k] and a[-1][k] else None)
+    el, r2, n_gdp = con.execute("SELECT regr_slope(ln(total_gwh), ln(gdp_usd_2015)), regr_r2(ln(total_gwh), "
+                                "ln(gdp_usd_2015)), count(gdp_usd_2015) FROM gold.annual_history "
+                                "WHERE total_gwh > 0 AND gdp_usd_2015 > 0").fetchone()
+    share = {x["year"]: _r(100 * (x["import_gwh"] or 0) / x["total_gwh"], 1) for x in a}
+    fig, (ax, bx) = plt.subplots(2, 1, figsize=(9, 7), sharex=True)
+    ys = [x["year"] for x in a]
+    ax.plot(ys, [x["total_gwh"] for x in a], marker="o", label="energy GWh")
+    ax2 = ax.twinx()
+    ax2.plot(ys, [x["national_peak_mw"] for x in a], marker="s", color="tab:orange", label="national peak MW")
+    ax.set_title("Annual energy (GWh, left) and national peak (MW, right)")
+    bx.bar(ys, list(share.values()))
+    bx.set_title("Import from India, % of annual energy")
+    fig.tight_layout()
+    return {"n": len(a), "years": [ys[0], ys[-1]] if ys else None, "low_n": len(a) < 12,
+            "energy_cagr_pct": cagr("total_gwh"), "peak_cagr_pct": cagr("national_peak_mw"),
+            "gdp_elasticity": _r(el), "gdp_r2": _r(r2), "n_gdp": n_gdp, "import_share_pct": share,
+            "chart": _save(fig, out, "growth")}
+
+
+QUESTIONS = [seasonality, temperature, discharge_lag, growth]
 
 
 def run(con, out: Path = Path("data/eda")) -> dict:

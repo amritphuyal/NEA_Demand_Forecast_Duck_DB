@@ -61,7 +61,7 @@ def main(argv: list[str] | None = None) -> int:
     ing.add_argument("sources", nargs="+", help="source names or 'all'")
     sub.add_parser("status", help="row counts and date ranges per table")
     sub.add_parser("maintain", help="compact lake files, expire old snapshots")
-    sub.add_parser("eda", help="exploratory analysis: numbers + charts to data/eda/")
+    sub.add_parser("eda", help="exploratory analysis: numbers + charts to docs/eda/")
     se = sub.add_parser("search", help="regex search through downloaded NEA report Markdown")
     se.add_argument("pattern")
     args = ap.parse_args(argv)

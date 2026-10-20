@@ -223,7 +223,7 @@ def gaps(con, out: Path | None) -> dict:
 QUESTIONS = [seasonality, temperature, discharge_lag, growth, reconcile, gaps]
 
 
-def run(con, out: Path = Path("data/eda")) -> dict:
+def run(con, out: Path = Path("docs/eda")) -> dict:  # committed: docs/eda-findings.md embeds the charts
     res, failed, t0 = {}, [], time.time()
     for q in QUESTIONS:
         name, t = q.__name__, time.time()

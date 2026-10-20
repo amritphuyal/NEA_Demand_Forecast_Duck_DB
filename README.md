@@ -11,7 +11,7 @@ uv sync
 uv run playwright install chromium     # fallback fetcher for NEA's bot protection
 uv run nea ingest all                  # incremental: only new data is fetched
 uv run nea status                      # rows + date range per table
-uv run nea eda                         # analysis numbers + charts -> data/eda/
+uv run nea eda                         # analysis numbers + charts -> docs/eda/
 uv run pytest                          # offline tests
 ```
 

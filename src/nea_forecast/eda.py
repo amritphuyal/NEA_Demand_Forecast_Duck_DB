@@ -188,7 +188,39 @@ def reconcile(con, out: Path | None) -> dict:
             "customs_vs_ndor": cmp("customs", "ndor"), "chart": _save(fig, out, "import_sources")}
 
 
-QUESTIONS = [seasonality, temperature, discharge_lag, growth, reconcile]
+def gaps(con, out: Path | None) -> dict:
+    """Coverage per series: first, last, n, expected; NDOR missing dates and the longest run of them."""
+    have = [d for (d,) in con.execute("SELECT date FROM silver.nea_daily ORDER BY 1").fetchall()]
+    missing, longest = [], 0
+    for a, b in zip(have, have[1:]):
+        gap = (b - a).days - 1
+        missing += [a + timedelta(i + 1) for i in range(gap)]
+        longest = max(longest, gap)
+    res = {"nea_daily": {"first": have[0] if have else None, "last": have[-1] if have else None, "n": len(have),
+                         "missing": len(missing), "longest_gap_days": longest, "missing_dates": missing}}
+    span_rows = {"weather_daily": "SELECT min(date), max(date), count(DISTINCT date) FROM silver.weather_daily",
+                 "river_discharge_daily": "SELECT min(date), max(date), count(DISTINCT date) FROM silver.river_discharge_daily",
+                 "nea_widget": "SELECT min(first_seen)::DATE, max(first_seen)::DATE, count(*) FROM silver.nea_widget"}
+    for k, sql in span_rows.items():
+        f, l_, n = con.execute(sql).fetchone()
+        res[k] = {"first": f, "last": l_, "n": n, "expected": (l_ - f).days + 1 if f else 0}
+    for k, (f, l_, n) in ((k, v) for k, v in reconcile(con, None)["coverage"].items() if v):
+        res[f"import_{k}_monthly"] = {"first": f, "last": l_, "n": n,
+                                      "expected": (l_.year - f.year) * 12 + l_.month - f.month + 1}
+    y = con.execute("SELECT min(year), max(year), count(*) FROM gold.annual_history").fetchone()
+    res["annual_history"] = {"first": y[0], "last": y[1], "n": y[2], "expected": y[1] - y[0] + 1 if y[0] else 0}
+    fig, ax = plt.subplots(figsize=(10, 4))
+    bars = [(k, v["first"], v["last"]) for k, v in res.items() if k != "annual_history" and v["first"]]
+    for i, (k, f, l_) in enumerate(bars):
+        ax.hlines(i, f, l_, lw=8)
+    ax.set_yticks(range(len(bars)), [b[0] for b in bars])
+    ax.set_title("Data coverage by series")
+    fig.tight_layout()
+    res["chart"] = _save(fig, out, "coverage")
+    return res
+
+
+QUESTIONS = [seasonality, temperature, discharge_lag, growth, reconcile, gaps]
 
 
 def run(con, out: Path = Path("data/eda")) -> dict:

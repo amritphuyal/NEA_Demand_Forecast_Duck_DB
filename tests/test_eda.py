@@ -97,3 +97,10 @@ def test_monthly_import_bs_mapping_units_and_partial_month(tmp_path):
     assert rows.get(date(2024, 9, 1), {}).get("ndor") is None  # 20 days only
     r = eda.reconcile(con, None)
     assert {k: r["vs_report"][k]["ratio"] for k in ("ndor", "customs", "iex")} == {"ndor": 1.0, "customs": 1.0, "iex": 1.0}
+
+
+def test_gaps_longest_run(tmp_path):
+    ds = span(date(2025, 1, 1), 30)
+    con = lake(tmp_path, ds[0], ds[-1], [{"date": d, "requirement_mwh": 1.0} for d in ds if d not in ds[10:13]])
+    r = eda.gaps(con, None)
+    assert r["nea_daily"]["longest_gap_days"] == 3 and r["nea_daily"]["missing"] == 3

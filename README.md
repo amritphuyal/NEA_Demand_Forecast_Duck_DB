@@ -11,6 +11,7 @@ uv sync
 uv run playwright install chromium     # fallback fetcher for NEA's bot protection
 uv run nea ingest all                  # incremental: only new data is fetched
 uv run nea status                      # rows + date range per table
+uv run nea eda                         # analysis numbers + charts -> data/eda/
 uv run pytest                          # offline tests
 ```
 
@@ -33,6 +34,7 @@ FROM lake.gold.daily_features LIMIT 5;
 | `docs/blueprint.md` | Mission, architecture, roadmap, model strategy |
 | `docs/flow.md` | Data flow + incremental rules + cron |
 | `docs/data-sources.md` | Every source researched, status, extra data points |
+| `docs/eda-findings.md` | EDA results + Phase 3 model inputs |
 | `docs/developer/decisions.md` | Architecture decisions + change log |
 | `docs/superpowers/plans/` | Phase implementation plans |
 

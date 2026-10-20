@@ -59,7 +59,27 @@ def seasonality(con, out: Path | None) -> dict:
             "winter_vs_summer": seasons, "chart": _save(fig, out, "seasonality")}
 
 
-QUESTIONS = [seasonality]
+def temperature(con, out: Path | None) -> dict:
+    """Heating (winter, Kathmandu night low) and cooling (summer, Terai mean) effect on daily requirement.
+    Working days only so weekends/holidays don't blur it. ponytail: no detrending; demand growth over the
+    2 years is small next to the seasonal swing within one winter."""
+    res, sql = {}, f"FROM {DAILY} AND NOT is_saturday AND NOT is_holiday AND season = ?"
+    for season, col, key in (("winter", "tmin_ktm", "ktm"), ("summer", "tmean_terai", "terai")):
+        c, sl, n = con.execute(f"SELECT corr(requirement_mwh, {col}), regr_slope(requirement_mwh, {col}), "
+                               f"count({col}) {sql}", [season]).fetchone()
+        res[season] = {f"corr_{key}": _r(c), f"slope_{key}": _r(sl, 0), "n": n, "low_n": n < 30,
+                       "unit": f"MWh per degC of {col}"}
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4))
+    for ax, (season, col) in zip(axes, (("winter", "tmin_ktm"), ("summer", "tmean_terai"))):
+        pts = con.execute(f"SELECT {col}, requirement_mwh {sql} AND {col} IS NOT NULL", [season]).fetchall()
+        ax.scatter([p[0] for p in pts], [p[1] for p in pts], s=6)
+        ax.set(title=f"{season}: requirement vs {col}", xlabel="degC", ylabel="MWh/day")
+    fig.tight_layout()
+    res["chart"] = _save(fig, out, "temperature")
+    return res
+
+
+QUESTIONS = [seasonality, temperature]
 
 
 def run(con, out: Path = Path("data/eda")) -> dict:

@@ -33,3 +33,18 @@ def test_seasonality_holiday_dip_and_qa_filter(tmp_path):
     assert r["holiday_dip_pct"] == pytest.approx(-20, abs=0.5)
     assert r["n"] == 30
     assert r["winter_vs_summer"]["winter"]["requirement_mwh"] > 900
+
+
+def weather(con, rows: list[tuple]):  # (date, point, tmax, tmin)
+    upsert(con, "silver.weather_daily", [{"date": d, "point": p, "tmax_c": hi, "tmin_c": lo, "precip_mm": 0.0}
+                                         for d, p, hi, lo in rows], ("date", "point"))
+
+
+def test_temperature_winter_heating_slope(tmp_path):
+    ds = span(date(2024, 12, 1), 62)
+    tmin = {d: 2 + (i % 9) for i, d in enumerate(ds)}
+    con = lake(tmp_path, ds[0], ds[-1], [{"date": d, "requirement_mwh": 30000 - 500 * tmin[d]} for d in ds])
+    weather(con, [(d, "kathmandu", 15.0, tmin[d]) for d in ds])
+    r = eda.temperature(con, None)["winter"]
+    assert r["slope_ktm"] == pytest.approx(-500)
+    assert r["corr_ktm"] < -0.99 and r["n"] > 30

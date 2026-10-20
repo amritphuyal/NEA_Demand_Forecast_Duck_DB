@@ -2,6 +2,8 @@
 Read-only on the lake. `nea eda` runs them all and writes data/eda/summary.json."""
 import json
 import time
+from datetime import timedelta
+from statistics import correlation
 from pathlib import Path
 
 import matplotlib
@@ -79,7 +81,42 @@ def temperature(con, out: Path | None) -> dict:
     return res
 
 
-QUESTIONS = [seasonality, temperature]
+def _lag_curve(con, y: str, x: str, max_lag: int) -> list[tuple]:
+    """corr(y(t), x(t-k)) for k = 0..max_lag, matched by date: NDOR gaps don't shift the lag.
+    In Python: the same self-join in SQL trips a DuckDB 2.0 internal error (dictionary cache)."""
+    ys = dict(con.execute(f"SELECT date, {y} FROM {DAILY} AND {y} IS NOT NULL").fetchall())
+    xs = dict(con.execute(f"SELECT date, {x} FROM gold.daily_features WHERE {x} IS NOT NULL").fetchall())
+    out = []
+    for k in range(max_lag + 1):
+        pairs = [(v, xs[d - timedelta(k)]) for d, v in ys.items() if d - timedelta(k) in xs]
+        c = correlation(*zip(*pairs)) if len(pairs) > 2 else None
+        out.append((k, c, len(pairs)))
+    return out
+
+
+def discharge_lag(con, out: Path | None, max_lag: int = 30) -> dict:
+    """How many days after river flow moves does domestic generation (up) and India import (down) follow?"""
+    gen = "nea_gen_mwh + nea_sub_gen_mwh + ipp_gen_mwh"
+    cg = _lag_curve(con, gen, "discharge_index", max_lag)
+    ci = _lag_curve(con, "net_exchange_india_mwh", "discharge_index", max_lag)
+    best = lambda c, f: dict(zip(("best_lag", "corr", "n"), f(c, key=lambda t: t[1] or 0, default=(None, None, 0))))  # noqa: E731
+    res = {"gen": best(cg, max), "import": best(ci, min),
+           "basins_gen": {q: best(_lag_curve(con, gen, q, max_lag), max)["best_lag"]
+                          for q in ("q_narayani", "q_koshi", "q_karnali")},
+           "curve": {k: (_r(a), _r(b)) for (k, a, _), (_, b, _) in zip(cg, ci)}}
+    for k in ("gen", "import"):
+        res[k]["corr"] = _r(res[k]["corr"])
+    fig, ax = plt.subplots(figsize=(8, 4))
+    ax.plot([c[0] for c in cg], [c[1] for c in cg], label="domestic generation")
+    ax.plot([c[0] for c in ci], [c[1] for c in ci], label="net import from India")
+    ax.axhline(0, color="grey", lw=0.5)
+    ax.set(title="Correlation with discharge_index k days earlier", xlabel="lag k (days)", ylabel="corr")
+    ax.legend()
+    res["chart"] = _save(fig, out, "discharge_lag")
+    return res
+
+
+QUESTIONS = [seasonality, temperature, discharge_lag]
 
 
 def run(con, out: Path = Path("data/eda")) -> dict:

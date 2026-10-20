@@ -48,3 +48,17 @@ def test_temperature_winter_heating_slope(tmp_path):
     r = eda.temperature(con, None)["winter"]
     assert r["slope_ktm"] == pytest.approx(-500)
     assert r["corr_ktm"] < -0.99 and r["n"] > 30
+
+
+def test_discharge_lag_by_date_survives_gaps(tmp_path):
+    q = {d: 1000 + 800 * math.sin(2 * math.pi * i / 60) for i, d in enumerate(span(date(2023, 11, 22), 240))}
+    ds = span(date(2024, 1, 1), 200)
+    gone = set(ds[50:60])  # NDOR gap: a row-offset lag would shift everything after it
+    days = [{"date": d, "nea_gen_mwh": 0.5 * q[d - timedelta(7)], "nea_sub_gen_mwh": 0.0, "ipp_gen_mwh": 0.0,
+             "net_exchange_india_mwh": 5000 - q[d - timedelta(3)]} for d in ds if d not in gone]
+    con = lake(tmp_path, date(2023, 11, 22), ds[-1], days)
+    upsert(con, "silver.river_discharge_daily", [{"date": d, "point": "narayani_devghat", "discharge_m3s": v}
+                                                 for d, v in q.items()], ("date", "point"))
+    r = eda.discharge_lag(con, None)
+    assert r["gen"]["best_lag"] == 7 and r["gen"]["corr"] > 0.99
+    assert r["import"]["best_lag"] == 3 and r["import"]["corr"] < -0.99

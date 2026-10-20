@@ -76,3 +76,24 @@ def test_growth_gdp_elasticity_and_low_n(tmp_path):
     r = eda.growth(con, None)
     assert r["gdp_elasticity"] == pytest.approx(1.5) and r["low_n"] is True and r["n"] == 10
     assert r["peak_cagr_pct"] == pytest.approx(5.0)
+
+
+def test_monthly_import_bs_mapping_units_and_partial_month(tmp_path):
+    x = {date(2024, 7, 1): 120.0, date(2024, 8, 1): 90.0}  # GWh
+    days = [{"date": d, "import_mwh": x[d.replace(day=1)] * 1000 / 31} for m in x for d in span(m, 31)]
+    days += [{"date": d, "import_mwh": 1000.0} for d in span(date(2024, 9, 1), 20)]  # partial month
+    con = lake(tmp_path, date(2024, 7, 1), date(2024, 9, 30), days)
+    rep = [{"doc_key": "d", "fy": "2081/82", "table_no": 1, "title": "energy balance", "series": s, "bs_month": bm,
+            "value": v} for bm, v in ((4, 120.0), (5, 90.0)) for s in ("Total demand", "Import")]  # Shrawan, Bhadra
+    con.execute("INSERT INTO silver.report_monthly BY NAME SELECT * FROM (SELECT unnest(?, recursive := true))", [rep])
+    upsert(con, "silver.india_trade_monthly", [{"month": m, "direction": "nepal_import", "measure": "mwh",
+                                               "month_value": v * 1000, "fy_cum_value": 0.0} for m, v in x.items()],
+           ("month", "direction", "measure"))
+    upsert(con, "silver.iex_cross_border_monthly", [{"month": m, "market": "DAM", "sale_mu": 0.0, "purchase_mu": v,
+                                                    "net_mu": v, "sale_price": None, "purchase_price": None,
+                                                    "source_url": ""} for m, v in x.items()], ("month", "market"))
+    rows = {r["month"]: r for r in eda.monthly_import(con)}
+    assert rows[date(2024, 7, 1)]["report"] == 120.0  # Shrawan 2081 starts 2024-07-16 -> July
+    assert rows.get(date(2024, 9, 1), {}).get("ndor") is None  # 20 days only
+    r = eda.reconcile(con, None)
+    assert {k: r["vs_report"][k]["ratio"] for k in ("ndor", "customs", "iex")} == {"ndor": 1.0, "customs": 1.0, "iex": 1.0}

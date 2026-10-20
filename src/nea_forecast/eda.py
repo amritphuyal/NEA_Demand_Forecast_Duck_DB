@@ -142,7 +142,53 @@ def growth(con, out: Path | None) -> dict:
             "chart": _save(fig, out, "growth")}
 
 
-QUESTIONS = [seasonality, temperature, discharge_lag, growth]
+SOURCES = ("ndor", "report", "customs", "iex")
+
+
+def monthly_import(con) -> list[dict]:
+    """Nepal import from India per AD month, GWh, one column per source (None = no data).
+    report: NEA annual-report balance; a BS month goes to the AD month it starts in (consistent half-month shift)."""
+    q = {
+        "ndor": f"SELECT date_trunc('month', date)::DATE, sum(import_mwh) / 1000 FROM {DAILY} "
+                "GROUP BY 1 HAVING count(import_mwh) >= 25",  # partial months would read low
+        "report": "SELECT c.date, r.import FROM gold.report_monthly_balance r JOIN silver.dim_calendar c "
+                  "ON c.fiscal_year = r.fy AND c.bs_month = r.bs_month AND c.bs_day = 1 "
+                  "WHERE r.unit = 'GWh' AND r.import IS NOT NULL",
+        "customs": "SELECT month, month_value / 1000 FROM silver.india_trade_monthly "
+                   "WHERE direction = 'nepal_import' AND measure = 'mwh'",  # TKW = MWh
+        "iex": "SELECT month, sum(purchase_mu) FROM silver.iex_cross_border_monthly GROUP BY 1",  # MU = GWh
+    }
+    data = {k: {d.replace(day=1): v for d, v in con.execute(sql).fetchall()} for k, sql in q.items()}
+    months = sorted(set().union(*data.values()))
+    return [{"month": m, **{k: data[k].get(m) for k in SOURCES}} for m in months]
+
+
+def reconcile(con, out: Path | None) -> dict:
+    """How far apart are the four import series? Reference = NEA's own monthly report figure."""
+    rows = monthly_import(con)
+
+    def cmp(a: str, b: str) -> dict:
+        pr = [(r[a], r[b]) for r in rows if r[a] is not None and r[b] is not None]
+        n = len(pr)
+        sb = sum(y for _, y in pr)
+        return {"n": n, "low_n": n < 12, "ratio": _r(sum(x for x, _ in pr) / sb) if sb else None,
+                "corr": _r(correlation(*zip(*pr))) if n > 2 else None,
+                # WAPE, not MAPE: monsoon months import ~0, so per-month % errors explode
+                "wape_pct": _r(100 * sum(abs(x - y) for x, y in pr) / sb, 1) if sb else None}
+
+    cov = {k: (lambda ms: [ms[0], ms[-1], len(ms)] if ms else None)([r["month"] for r in rows if r[k] is not None])
+           for k in SOURCES}
+    fig, ax = plt.subplots(figsize=(11, 4))
+    for k in SOURCES:
+        pts = [(r["month"], r[k]) for r in rows if r[k] is not None]
+        ax.plot([p[0] for p in pts], [p[1] for p in pts], marker=".", lw=1, label=k)
+    ax.set(title="Monthly import from India by source (GWh)", ylabel="GWh")
+    ax.legend()
+    return {"coverage": cov, "vs_report": {k: cmp(k, "report") for k in ("ndor", "customs", "iex")},
+            "customs_vs_ndor": cmp("customs", "ndor"), "chart": _save(fig, out, "import_sources")}
+
+
+QUESTIONS = [seasonality, temperature, discharge_lag, growth, reconcile]
 
 
 def run(con, out: Path = Path("data/eda")) -> dict:

@@ -1,6 +1,7 @@
 CREATE SCHEMA IF NOT EXISTS bronze;
 CREATE SCHEMA IF NOT EXISTS silver;
 CREATE SCHEMA IF NOT EXISTS gold;
+CREATE SCHEMA IF NOT EXISTS ml;
 
 CREATE TABLE IF NOT EXISTS bronze.ingest_log (
     source VARCHAR, key VARCHAR, url VARCHAR, status VARCHAR, sha256 VARCHAR, fetched_at TIMESTAMP
@@ -164,3 +165,15 @@ QUALIFY h.fy IS NULL
                           <= 0.05 * coalesce(h.ldc_national_peak_mw, h.national_peak_mw))  -- LDC beats chart (FY 2079/80)
      OR (m.unit = 'GWh' AND abs(sum(m.system_demand) OVER w * 12 / count(*) OVER w - h.total_gwh) <= 0.10 * h.total_gwh);
 
+
+-- Phase 3 models. weather: 'clim' (ex-ante, climatology for target-day weather) | 'actual' (ex-post oracle).
+-- dm_p: Diebold-Mariano p-value vs the next simpler model on the ladder.
+CREATE TABLE IF NOT EXISTS ml.backtest_metrics (
+    run_id VARCHAR, model VARCHAR, target VARCHAR, horizon INTEGER, season VARCHAR, weather VARCHAR,
+    mae DOUBLE, mape DOUBLE, coverage DOUBLE, pinball DOUBLE, dm_p DOUBLE, n INTEGER, created_at TIMESTAMP
+);
+-- horizon: days (daily) or months ahead (monthly). Backtest runs keep their forecasts too (run_id bt-*).
+CREATE TABLE IF NOT EXISTS ml.forecasts (
+    run_id VARCHAR, model VARCHAR, target VARCHAR, horizon INTEGER, origin DATE, date DATE,
+    yhat DOUBLE, p10 DOUBLE, p90 DOUBLE, created_at TIMESTAMP
+);

@@ -35,6 +35,7 @@ FROM lake.gold.daily_features LIMIT 5;
 | `docs/flow.md` | Data flow + incremental rules + cron |
 | `docs/data-sources.md` | Every source researched, status, extra data points |
 | `docs/eda-findings.md` | EDA results + Phase 3 model inputs |
+| `docs/models/` | Forecasting approach + one doc per model + literature review (defence of the method) |
 | `docs/developer/decisions.md` | Architecture decisions + change log |
 | `docs/superpowers/plans/` | Phase implementation plans |
 

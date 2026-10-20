@@ -5,7 +5,7 @@ from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 
-from nea_forecast import calendar, cerc, dhm, india_trade, ndor, nea_docs, nea_widget, ocr, open_meteo, reports, world_bank
+from nea_forecast import calendar, cerc, eda, dhm, india_trade, ndor, nea_docs, nea_widget, ocr, open_meteo, reports, world_bank
 from nea_forecast.lake import connect
 
 # name -> ingest(con) -> rows written
@@ -61,6 +61,7 @@ def main(argv: list[str] | None = None) -> int:
     ing.add_argument("sources", nargs="+", help="source names or 'all'")
     sub.add_parser("status", help="row counts and date ranges per table")
     sub.add_parser("maintain", help="compact lake files, expire old snapshots")
+    sub.add_parser("eda", help="exploratory analysis: numbers + charts to data/eda/")
     se = sub.add_parser("search", help="regex search through downloaded NEA report Markdown")
     se.add_argument("pattern")
     args = ap.parse_args(argv)
@@ -86,6 +87,11 @@ def main(argv: list[str] | None = None) -> int:
         return 1 if failed else 0
     elif args.cmd == "search":
         reports.search(args.pattern)
+    elif args.cmd == "eda":
+        con = connect(read_only=True)
+        failed = [k for k, v in eda.run(con).items() if "error" in v]
+        con.close()
+        return 1 if failed else 0
     elif args.cmd == "status":
         status(connect())
     elif args.cmd == "maintain":

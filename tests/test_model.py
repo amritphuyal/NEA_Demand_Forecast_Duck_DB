@@ -57,3 +57,19 @@ def test_backtest_weekly_series_snaive_mae_zero():
     metrics, errors = model.backtest(c, {"snaive": model.BASELINES["snaive"]}, [T], [1, 7], "clim", date(2024, 3, 1))
     assert {(m["horizon"], m["season"]): m["mae"] for m in metrics if m["model"] == "snaive"}[(7, "all")] == 0
     assert all(m["mape"] is not None for m in metrics)
+
+
+def test_fit_ridge_recovers_coefficients():
+    import numpy as np
+    rng = np.random.default_rng(0)
+    X = rng.normal(size=(200, 2))
+    y = 3 * X[:, 0] - 2 * X[:, 1] + 5
+    fit = model.fit_ridge(X, y, 1e-6)
+    assert model.predict_ridge(fit, np.array([[1.0, 1.0], [0.0, 0.0]])) == pytest.approx([6.0, 5.0], rel=0.01)
+
+
+def test_dm_test():
+    import numpy as np
+    e = list(np.random.default_rng(1).normal(size=200))
+    assert model.dm_test(e, e, 1) == 1.0
+    assert model.dm_test(e, [2 * x for x in e], 7) < 0.01

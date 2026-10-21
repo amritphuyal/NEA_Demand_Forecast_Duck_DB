@@ -110,6 +110,52 @@ def _baseline(key):
 
 
 BASELINES = {"naive": _baseline("y_t"), "snaive": _baseline("y_snaive"), "wma30": _baseline("y_wma30")}
+RIDGE_FEATS = ["y_t", "y_mean7", "y_snaive", *[f"dow_{i}" for i in range(1, 7)], "holiday", "hdd", "cdd",
+               "tmean_terai", "temp_anom_t", "temp_anom_7", "q_clim", "q_anom_t", "q_anom_7", "trend"]
+LAMBDAS = (0.1, 1.0, 10.0, 100.0)
+
+
+def fit_ridge(X: np.ndarray, y: np.ndarray, lam: float) -> tuple:
+    """Closed-form ridge on standardised X: lstsq on [X; sqrt(lam) I] -> [y; 0]."""
+    mu, sd = X.mean(0), X.std(0)
+    sd[sd == 0] = 1.0
+    A = np.vstack([(X - mu) / sd, math.sqrt(lam) * np.eye(X.shape[1])])
+    b = np.concatenate([y - y.mean(), np.zeros(X.shape[1])])
+    return mu, sd, np.linalg.lstsq(A, b, rcond=None)[0], y.mean()
+
+
+def predict_ridge(fit: tuple, X: np.ndarray) -> np.ndarray:
+    mu, sd, coef, y0 = fit
+    return (X - mu) / sd @ coef + y0
+
+
+def _xy(rows, feats):
+    return np.array([[x[k] for k in feats] for x, _ in rows]), np.array([yv - x["y_t"] for x, yv in rows])
+
+
+def ridge(train: list, test: list, feats: list[str] = RIDGE_FEATS) -> list[float]:
+    """Target = change from today (y_{t+h} - y_t): shrinkage pulls toward the naive forecast, the strong
+    baseline, not toward zero. Lambda picked on the last 60 training rows (time order), then refit on all."""
+    X, y = _xy(train, feats)
+    lam = 1.0
+    if len(train) >= 180:
+        v = 60
+        lam = min(LAMBDAS, key=lambda L: np.abs(predict_ridge(fit_ridge(X[:-v], y[:-v], L), X[-v:]) - y[-v:]).mean())
+    Xt = np.array([[x[k] for k in feats] for x in test])
+    return list(predict_ridge(fit_ridge(X, y, lam), Xt) + Xt[:, feats.index("y_t")])
+
+
+def dm_test(e1: list[float], e2: list[float], h: int) -> float:
+    """Diebold-Mariano, absolute-error loss, Newey-West variance with h-1 lags; two-sided normal p-value."""
+    d = np.abs(np.array(e1)) - np.abs(np.array(e2))
+    n = len(d)
+    if n < 3 or not d.any():
+        return 1.0
+    dc = d - d.mean()
+    var = (dc @ dc + 2 * sum((1 - k / h) * (dc[k:] @ dc[:-k]) for k in range(1, h))) / n / n
+    if var <= 0:
+        var = (dc @ dc) / n / n
+    return math.erfc(abs(d.mean() / math.sqrt(var)) / math.sqrt(2))
 
 
 # ---------- backtest ----------
@@ -155,8 +201,57 @@ def metrics(errors: dict, weather: str) -> list[dict]:
             mape = (100 * sum(abs(y - p) / abs(y) for _, _, y, p in sel if y) / len(sel)
                     if target in PCT_TARGETS else None)
             rows.append({"model": name, "target": target, "horizon": h, "season": season, "weather": weather,
-                         "mae": sum(abs(y - p) for _, _, y, p in sel) / len(sel), "mape": mape, "n": len(sel)})
+                         "mae": sum(abs(y - p) for _, _, y, p in sel) / len(sel), "mape": mape, "n": len(sel),
+                         "dm_p": None})
     return rows
+
+
+LADDER = ["ridge"]  # complexity order above the baselines; each is tested against the one below
+
+
+def attach_dm(rows: list[dict], errors: dict) -> None:
+    """dm_p on each ladder model's rows: Diebold-Mariano vs the next simpler model (the best baseline by
+    winter MAE for the first rung), paired by origin, per season."""
+    by = {(r["model"], r["target"], r["horizon"], r["season"]): r for r in rows}
+    for t, h in {(r["target"], r["horizon"]) for r in rows}:
+        prev = min((m for m in BASELINES if (m, t, h, "winter") in by), key=lambda m: by[(m, t, h, "winter")]["mae"])
+        for m in LADDER:
+            if (m, t, h) not in errors:
+                continue
+            for season in ("all", "winter"):
+                err = lambda k: {e[0]: e[2] - e[3] for e in errors[(k, t, h)]  # noqa: E731
+                                 if season == "all" or e[1].month in WINTER}
+                a, b = err(prev), err(m)
+                common = sorted(a.keys() & b.keys())
+                if (m, t, h, season) in by:
+                    by[(m, t, h, season)]["dm_p"] = dm_test([b[o] for o in common], [a[o] for o in common], h)
+                    by[(m, t, h, season)]["dm_vs"] = prev
+            prev = m
+
+
+MODELS = {"ridge": ridge}
+
+
+def sensitivity(c: dict) -> str:
+    """Ridge winter MAPE for demand under HDD/CDD thresholds +-3 degC: the fixed choice must not be tuned."""
+    lines = ["  hdd_base cdd_base | " + " | ".join(f"req h={h}" for h in HORIZONS)]
+    for hb, cb in ((12, 24), (15, 24), (18, 24), (15, 21), (15, 27)):
+        rows, _ = backtest({**c, "hdd_base": hb, "cdd_base": cb}, {"ridge": ridge}, ["requirement_mwh"], HORIZONS, "clim")
+        w = {r["horizon"]: r["mape"] for r in rows if r["season"] == "winter"}
+        lines.append(f"  {hb:8} {cb:8} | " + " | ".join(f"{w[h]:8.2f}%" for h in HORIZONS))
+    return "\n".join(lines)
+
+
+def stability(c: dict) -> str:
+    """Standardised ridge coefficients (h=1 demand) fitted on 2023 vs 2024 origins: same sign = stable."""
+    rows = _rows(c, "requirement_mwh", 1, "clim")
+    fits = {yr: fit_ridge(*_xy([(x, yv) for o, x, yv in rows if o.year == yr], RIDGE_FEATS), 1.0)[2]
+            for yr in (2023, 2024)}
+    lines = [f"  {'feature':12} {'2023':>8} {'2024':>8}  same sign"]
+    for i, k in enumerate(RIDGE_FEATS):
+        a, b = fits[2023][i], fits[2024][i]
+        lines.append(f"  {k:12} {a:8.0f} {b:8.0f}  {'yes' if a * b > 0 or abs(a) + abs(b) < 50 else 'NO'}")
+    return "\n".join(lines)
 
 
 def _save(fig, name: str) -> str:
@@ -198,15 +293,24 @@ def run_backtest(con) -> dict:
     print("▶ load: start", flush=True)
     c = load(con)
     print(f"✔ load: {len(c['frame'])} days, weather {len(c['wx'])} days in {time.time() - t:.1f}s", flush=True)
-    models, all_rows = dict(BASELINES), []
+    models, all_rows = {**BASELINES, **{m: MODELS[m] for m in LADDER}}, []
     for weather in ("clim", "actual"):
         t = time.time()
-        print(f"▶ backtest ({weather}): {len(models)} models x {len(TARGETS)} targets x {len(HORIZONS)} horizons", flush=True)
-        rows, _ = backtest(c, models, TARGETS, HORIZONS, weather)
+        print(f"▶ backtest ({weather}): {list(models)} x {len(TARGETS)} targets x {len(HORIZONS)} horizons", flush=True)
+        rows, errors = backtest(c, models, TARGETS, HORIZONS, weather)
+        attach_dm(rows, errors)
         all_rows += rows
         print(f"✔ backtest ({weather}) in {time.time() - t:.0f}s; winter MAE (MAPE):\n{_table(rows)}", flush=True)
-    upsert(con, "ml.backtest_metrics", [{"run_id": run_id, "coverage": None, "pinball": None, "dm_p": None,
-                                         "created_at": now, **r} for r in all_rows],
+        print("  Diebold-Mariano (winter), ladder model vs next simpler:\n" + "\n".join(
+            f"  {r['target']:24} h={r['horizon']:<2} {r['model']} vs {r['dm_vs']}: p={r['dm_p']:.3f}"
+            for r in sorted(rows, key=lambda r: (r["target"], r["horizon"]))
+            if r["season"] == "winter" and r.get("dm_vs")), flush=True)
+    for fn in (sensitivity, stability):
+        t = time.time()
+        print(f"▶ {fn.__name__}: start", flush=True)
+        print(f"✔ {fn.__name__} in {time.time() - t:.0f}s:\n{fn(c)}", flush=True)
+    upsert(con, "ml.backtest_metrics", [{"run_id": run_id, "coverage": None, "pinball": None, "created_at": now,
+                                         **{k: v for k, v in r.items() if k != "dm_vs"}} for r in all_rows],
            ("run_id", "model", "target", "horizon", "season", "weather"))
     print(f"✔ saved {len(all_rows)} metric rows as {run_id}; chart {chart_daily(all_rows)}", flush=True)
     return {"run_id": run_id, "rows": all_rows}

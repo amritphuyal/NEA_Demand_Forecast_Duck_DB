@@ -127,3 +127,15 @@ def test_combo_is_mean():
     t = [d.replace(day=1) for d in t]
     parts = [f(s, None, t, True) for k, f in model.MONTHLY_MODELS.items() if k != "combo"]
     assert model.MONTHLY_MODELS["combo"](s, None, t, True) == pytest.approx([sum(x) / len(x) for x in zip(*parts)])
+
+
+def test_intervals_quantiles_and_coverage():
+    import numpy as np
+    rng = np.random.default_rng(2)
+    res = list(rng.uniform(-10, 10, 4000))
+    lo, hi = model.interval(res)
+    assert lo == pytest.approx(-8, abs=0.5) and hi == pytest.approx(8, abs=0.5)
+    days = [date(2024, 11, 1) + timedelta(i) for i in range(300)]
+    es = [(d, d, float(r), 0.0) for d, r in zip(days, rng.uniform(-10, 10, 300))]
+    cov, pin, n = model.score_intervals({("m", T, 1): es})[("m", T, 1, "all")]
+    assert cov == pytest.approx(0.8, abs=0.08) and n > 200

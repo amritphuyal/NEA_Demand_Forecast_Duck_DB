@@ -319,6 +319,42 @@ def stability(c: dict) -> str:
     return "\n".join(lines)
 
 
+WINDOW, MIN_RES = 60, 30  # interval = quantiles of the last 60 known out-of-sample errors (need >= 30)
+
+
+def interval(residuals: list[float]) -> tuple[float, float]:
+    """Empirical 10% / 90% quantiles of residuals y - yhat: added to yhat they give P10 / P90."""
+    return tuple(float(x) for x in np.quantile(residuals, [0.1, 0.9]))
+
+
+def _bounds(es: list[tuple]) -> list[tuple]:
+    """Per forecast: (origin, date, y, yhat, p10, p90) using only errors whose target date <= its origin
+    (known at forecast time), last WINDOW of them. Forecasts without MIN_RES known errors get no interval."""
+    known = sorted(es, key=lambda e: e[1])
+    out = []
+    for o, d, y, p in es:
+        past = [e[2] - e[3] for e in known if e[1] <= o][-WINDOW:]
+        if len(past) >= MIN_RES:
+            lo, hi = interval(past)
+            out.append((o, d, y, p, p + lo, p + hi))
+    return out
+
+
+def score_intervals(errors: dict) -> dict:
+    """{(model, target, h, season): (coverage, mean pinball at 0.1 and 0.9, n)}."""
+    pin = lambda q, y, b: q * (y - b) if y >= b else (1 - q) * (b - y)  # noqa: E731
+    out = {}
+    for (m, t, h), es in errors.items():
+        b = _bounds(es)
+        for season in ("all", "winter"):
+            sel = [x for x in b if season == "all" or x[1].month in WINTER]
+            if sel:
+                out[(m, t, h, season)] = (sum(lo <= y <= hi for _, _, y, _, lo, hi in sel) / len(sel),
+                                          sum(pin(0.1, y, lo) + pin(0.9, y, hi) for _, _, y, _, lo, hi in sel) / 2 / len(sel),
+                                          len(sel))
+    return out
+
+
 def _save(fig, name: str) -> str:
     OUT.mkdir(parents=True, exist_ok=True)
     fig.savefig(OUT / f"{name}.png", dpi=110, bbox_inches="tight")
@@ -365,7 +401,20 @@ def run_backtest(con) -> dict:
         rows, errors = backtest(c, models, TARGETS, HORIZONS, weather)
         attach_dm(rows, errors)
         if weather == "clim":  # selection uses ex-ante results only
+            sc = score_intervals(errors)
+            for r in rows:
+                r["coverage"], r["pinball"] = sc.get((r["model"], r["target"], r["horizon"], r["season"]), (None, None, 0))[:2]
             chosen = select(rows, errors)
+            fc_rows = [{"run_id": run_id, "model": m, "target": tg, "horizon": h, "origin": o, "date": d, "yhat": p,
+                        "p10": lo, "p90": hi, "created_at": now}
+                       for (m, tg, h), es in errors.items() if chosen.get(f"{tg}|{h}") == m
+                       for o, d, _, p, lo, hi in _bounds(es)]
+            upsert(con, "ml.forecasts", fc_rows, ("run_id", "model", "target", "origin", "date"))
+            print(f"✔ intervals: {len(fc_rows)} backtest forecasts with P10/P90 saved; winter coverage of selected "
+                  "models (target 80%):\n" + "\n".join(
+                      f"  {k:30} {v:7} coverage {sc[(v, *k.split('|')[:1], int(k.split('|')[1]), 'winter')][0]:.0%}"
+                      for k, v in chosen.items() if (v, k.split('|')[0], int(k.split('|')[1]), 'winter') in sc),
+                  flush=True)
             need_rows, need_pick = import_need_compare(errors, chosen)
             rows += need_rows
             chosen.update({f"import_need_method|{h}": m for h, m in need_pick.items()})

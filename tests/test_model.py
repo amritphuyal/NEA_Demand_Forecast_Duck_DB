@@ -73,3 +73,18 @@ def test_dm_test():
     e = list(np.random.default_rng(1).normal(size=200))
     assert model.dm_test(e, e, 1) == 1.0
     assert model.dm_test(e, [2 * x for x in e], 7) < 0.01
+
+
+def test_select_needs_margin_and_significance():
+    base = {"naive": 100.0, "snaive": 120.0}
+    assert model.select_one({**base, "ridge": 97.0}, lambda a, b: 0.01) == "naive"  # 3% better: not enough
+    assert model.select_one({**base, "ridge": 90.0}, lambda a, b: 0.01) == "ridge"
+    assert model.select_one({**base, "ridge": 90.0}, lambda a, b: 0.4) == "naive"  # better but not significant
+    assert model.select_one({**base, "ridge": 90.0, "lgbm": 88.0}, lambda a, b: 0.01) == "ridge"  # lgbm < 5% over ridge
+
+
+def test_select_prefers_simpler_model_of_equal_skill():
+    # ridge alone not significant vs naive, lgbm is; ridge within 5% of lgbm -> ridge
+    p = lambda a, b: 0.01 if a == "lgbm" else 0.4  # noqa: E731
+    assert model.select_one({"naive": 100.0, "ridge": 62.0, "lgbm": 61.6}, p) == "ridge"
+    assert model.select_one({"naive": 100.0, "ridge": 70.0, "lgbm": 60.0}, p) == "lgbm"

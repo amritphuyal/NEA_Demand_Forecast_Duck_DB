@@ -8,9 +8,9 @@ One model per horizon $h$ (a "direct" forecast). The target is the **change from
 
 $$\sum_t \big(\Delta_t - \beta_0 - \beta^\top x(t,h)\big)^2 + \lambda \lVert\beta\rVert^2$$
 
-Why the change and not the level: ridge shrinks $\beta$ toward 0, which then means "tomorrow = today", the strongest baseline. With a level target, it would shrink toward the mean instead.
-
 with standardised features. $\lambda \in \{0.1, 1, 10, 100\}$ is picked on the last 60 days of each training window (time-ordered, never random). It is solved in closed form with numpy (`lstsq` on the augmented system), so there's no iterative training and the same data always gives the same model.
+
+Why the change and not the level: ridge shrinks $\beta$ toward 0, which then means "tomorrow = today", the strongest baseline. With a level target, it would shrink toward the mean instead.
 
 ## Features $x(t,h)$, all known at origin $t$
 

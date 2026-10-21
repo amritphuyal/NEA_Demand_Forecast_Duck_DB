@@ -68,6 +68,7 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
     if argv is None:  # real CLI run (not tests): keep a log per run
         sys.stdout = _Tee(Path("data/logs") / f"{datetime.now():%Y%m%d-%H%M%S}-{args.cmd}.log")
+        sys.stderr = sys.stdout  # tracebacks and library warnings land in the log too
 
     if args.cmd == "ingest":
         names = list(INGESTERS) if args.sources == ["all"] else args.sources

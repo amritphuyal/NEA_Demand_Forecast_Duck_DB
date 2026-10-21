@@ -206,7 +206,33 @@ def metrics(errors: dict, weather: str) -> list[dict]:
     return rows
 
 
-LADDER = ["ridge"]  # complexity order above the baselines; each is tested against the one below
+LADDER = ["ridge", "lgbm"]  # complexity order above the baselines; each is tested against the one below
+MARGIN, ALPHA = 0.05, 0.10  # a more complex model must be >5% better on winter MAE and DM p < 0.10
+
+
+def select_one(mae: dict[str, float], p) -> str:
+    """Climb the ladder from the best baseline; move up only on a >5% AND significant improvement."""
+    best = min((m for m in BASELINES if m in mae), key=mae.get)
+    for m in LADDER:
+        if m in mae and mae[m] < (1 - MARGIN) * mae[best] and p(m, best) < ALPHA:
+            best = m
+    # then the simplest model within 5% of that one (blueprint rule): equal skill -> less complexity
+    order = [*BASELINES, *LADDER]
+    return next(m for m in order[:order.index(best) + 1] if m in mae and mae[m] <= (1 + MARGIN) * mae[best])
+
+
+def select(rows: list[dict], errors: dict) -> dict[str, str]:
+    """{'target|h': model} from winter MAE + DM test on winter errors (ex-ante run only)."""
+    out = {}
+    for t, h in sorted({(r["target"], r["horizon"]) for r in rows}):
+        mae = {r["model"]: r["mae"] for r in rows if (r["target"], r["horizon"], r["season"]) == (t, h, "winter")}
+
+        def p(a, b):
+            ea, eb = ({e[0]: e[2] - e[3] for e in errors[(k, t, h)] if e[1].month in WINTER} for k in (a, b))
+            common = sorted(ea.keys() & eb.keys())
+            return dm_test([ea[o] for o in common], [eb[o] for o in common], h)
+        out[f"{t}|{h}"] = select_one(mae, p)
+    return out
 
 
 def attach_dm(rows: list[dict], errors: dict) -> None:
@@ -229,7 +255,21 @@ def attach_dm(rows: list[dict], errors: dict) -> None:
             prev = m
 
 
-MODELS = {"ridge": ridge}
+def lgbm(train: list, test: list) -> list[float]:
+    """Gradient-boosted trees on the change from today (trees can't extrapolate a growing level).
+    Settings fixed for small data before testing (docs/models/lightgbm.md)."""
+    import lightgbm as lgb  # native API: the sklearn wrapper would pull in scikit-learn
+    feats = RIDGE_FEATS + ["tmin_ktm"]
+    X, y = _xy(train, feats)
+    params = {"objective": "regression", "learning_rate": 0.05, "num_leaves": 15, "min_data_in_leaf": 10,
+              "bagging_fraction": 0.8, "bagging_freq": 1, "feature_fraction": 0.8, "seed": 0, "verbose": -1,
+              "num_threads": 1}  # tiny data: threads cost more than they save
+    m = lgb.train(params, lgb.Dataset(X, y), num_boost_round=300)
+    Xt = np.array([[x[k] for k in feats] for x in test])
+    return list(m.predict(Xt) + Xt[:, 0])  # feats[0] = y_t
+
+
+MODELS = {"ridge": ridge, "lgbm": lgbm}
 
 
 def sensitivity(c: dict) -> str:
@@ -299,12 +339,18 @@ def run_backtest(con) -> dict:
         print(f"▶ backtest ({weather}): {list(models)} x {len(TARGETS)} targets x {len(HORIZONS)} horizons", flush=True)
         rows, errors = backtest(c, models, TARGETS, HORIZONS, weather)
         attach_dm(rows, errors)
+        if weather == "clim":  # selection uses ex-ante results only
+            chosen = select(rows, errors)
         all_rows += rows
         print(f"✔ backtest ({weather}) in {time.time() - t:.0f}s; winter MAE (MAPE):\n{_table(rows)}", flush=True)
         print("  Diebold-Mariano (winter), ladder model vs next simpler:\n" + "\n".join(
             f"  {r['target']:24} h={r['horizon']:<2} {r['model']} vs {r['dm_vs']}: p={r['dm_p']:.3f}"
             for r in sorted(rows, key=lambda r: (r["target"], r["horizon"]))
             if r["season"] == "winter" and r.get("dm_vs")), flush=True)
+    OUT.mkdir(parents=True, exist_ok=True)
+    (OUT / "selection.json").write_text(json.dumps(chosen, indent=1))
+    print("✔ selection (winter MAE >5% better and DM p<0.10 to climb):\n" +
+          "\n".join(f"  {k:30} {v}" for k, v in chosen.items()), flush=True)
     for fn in (sensitivity, stability):
         t = time.time()
         print(f"▶ {fn.__name__}: start", flush=True)

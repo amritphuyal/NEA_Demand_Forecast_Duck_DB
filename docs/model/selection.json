@@ -18,5 +18,9 @@
  "requirement_mwh|1": "ridge",
  "requirement_mwh|7": "ridge",
  "requirement_mwh|14": "ridge",
- "requirement_mwh|30": "ridge"
+ "requirement_mwh|30": "ridge",
+ "import_need_method|1": "diff",
+ "import_need_method|7": "diff",
+ "import_need_method|14": "diff",
+ "import_need_method|30": "diff"
 }

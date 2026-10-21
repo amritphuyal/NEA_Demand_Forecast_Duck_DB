@@ -88,3 +88,17 @@ def test_select_prefers_simpler_model_of_equal_skill():
     p = lambda a, b: 0.01 if a == "lgbm" else 0.4  # noqa: E731
     assert model.select_one({"naive": 100.0, "ridge": 62.0, "lgbm": 61.6}, p) == "ridge"
     assert model.select_one({"naive": 100.0, "ridge": 70.0, "lgbm": 60.0}, p) == "lgbm"
+
+
+def test_import_need_compare_diff_and_no_mape():
+    o = [date(2024, 12, 1) + timedelta(i) for i in range(40)]
+    req = [(d, d + timedelta(1), 100.0, 101.0) for d in o]  # (origin, date, y, yhat)
+    gen = [(d, d + timedelta(1), 60.0, 60.0) for d in o]
+    need = [(d, d + timedelta(1), 40.0, 45.0) for d in o]
+    errors = {("ridge", "requirement_mwh", 1): req, ("naive", "domestic_gen_mwh", 1): gen,
+              ("naive", "import_need_mwh", 1): need}
+    chosen = {"requirement_mwh|1": "ridge", "domestic_gen_mwh|1": "naive", "import_need_mwh|1": "naive"}
+    rows, pick = model.import_need_compare(errors, chosen, [1])
+    mae = {(r["model"], r["season"]): r["mae"] for r in rows}
+    assert mae[("diff", "winter")] == 1.0 and mae[("direct", "winter")] == 5.0
+    assert pick == {1: "diff"} and all(r["mape"] is None for r in rows)

@@ -38,4 +38,15 @@ Customs import 2017 → is scaled ×1.09 to the NEA report level (EDA reconcilia
 
 ## Results
 
-_Filled by `nea model` (Phase 3, Task 4): direct vs difference MAE per horizon, winter only._
+Run `bt-20261026-083218`. Winter MAE (MWh/day); the direct model is the one selected for `import_need_mwh` at that horizon, and the difference method uses the selected demand and generation models.
+
+| h | direct | diff (demand − generation) | DM p | used |
+|---|---|---|---|---|
+| 1 | 869 | 894 | 0.78 | diff (tie) |
+| 7 | 1,369 | 1,689 | 0.28 | diff (tie) |
+| 14 | 3,726 | **3,011** | 0.096 | diff (significant) |
+| 30 | 4,326 | **3,786** | 0.31 | diff |
+
+- At 1–7 days the direct model is lower, but not significantly, so the tie rule picks the difference method, which also explains the cause.
+- At 14–30 days the difference method is 13–19% better: the demand and generation models each carry their own physics (calendar/temperature vs river flow), which a single import model mixes.
+- **Context:** in the test winter, import need swung from a **surplus** of 6.9 GWh/day (Nov 2024 average) to a **need** of 8.4 GWh/day (Jan 2025). A 30-day error of 3.8 GWh/day is about a quarter of that swing: useful for direction and size, not for exact daily purchases. Most of it comes from generation (river flow). The ex-post run shows that actual discharge would cut generation error by about 40% (see [ridge](ridge.md)). A river-flow forecast is the biggest available gain.

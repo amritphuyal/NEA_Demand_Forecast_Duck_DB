@@ -155,6 +155,8 @@ def dm_test(e1: list[float], e2: list[float], h: int) -> float:
     var = (dc @ dc + 2 * sum((1 - k / h) * (dc[k:] @ dc[:-k]) for k in range(1, h))) / n / n
     if var <= 0:
         var = (dc @ dc) / n / n
+    if var == 0:  # constant non-zero loss difference: one model is always better
+        return 0.0
     return math.erfc(abs(d.mean() / math.sqrt(var)) / math.sqrt(2))
 
 
@@ -272,6 +274,29 @@ def lgbm(train: list, test: list) -> list[float]:
 MODELS = {"ridge": ridge, "lgbm": lgbm}
 
 
+def import_need_compare(errors: dict, chosen: dict, horizons: list[int] = HORIZONS) -> tuple[list[dict], dict]:
+    """Import need (requirement - domestic generation) two ways: 'direct' = selected model on the need itself,
+    'diff' = selected demand forecast - selected generation forecast. diff wins ties (it says why import moves)."""
+    rows, pick = [], {}
+    for h in horizons:
+        sel = lambda t: errors[(chosen[f"{t}|{h}"], t, h)]  # noqa: E731
+        r, g = ({e[0]: e for e in sel(t)} for t in ("requirement_mwh", "domestic_gen_mwh"))
+        diff = [(o, r[o][1], r[o][2] - g[o][2], r[o][3] - g[o][3]) for o in sorted(r.keys() & g.keys())]
+        errs = {("direct", "import_need_mwh", h): sel("import_need_mwh"), ("diff", "import_need_mwh", h): diff}
+        rs = metrics(errs, "clim")
+        w = {x["model"]: x for x in rs if x["season"] == "winter"}
+        ea, eb = ({e[0]: e[2] - e[3] for e in errs[(k, "import_need_mwh", h)] if e[1].month in WINTER}
+                  for k in ("direct", "diff"))
+        common = sorted(ea.keys() & eb.keys())
+        p = dm_test([ea[o] for o in common], [eb[o] for o in common], h)
+        for x in rs:
+            x["dm_p"], x["dm_vs"] = (p, "diff") if x["model"] == "direct" else (None, None)
+        better = w["direct"]["mae"] < (1 - MARGIN) * w["diff"]["mae"] and p < ALPHA
+        pick[h] = "direct" if better else "diff"
+        rows += rs
+    return rows, pick
+
+
 def sensitivity(c: dict) -> str:
     """Ridge winter MAPE for demand under HDD/CDD thresholds +-3 degC: the fixed choice must not be tuned."""
     lines = ["  hdd_base cdd_base | " + " | ".join(f"req h={h}" for h in HORIZONS)]
@@ -341,6 +366,14 @@ def run_backtest(con) -> dict:
         attach_dm(rows, errors)
         if weather == "clim":  # selection uses ex-ante results only
             chosen = select(rows, errors)
+            need_rows, need_pick = import_need_compare(errors, chosen)
+            rows += need_rows
+            chosen.update({f"import_need_method|{h}": m for h, m in need_pick.items()})
+            print("✔ import need, winter MAE direct vs diff (demand - generation):\n" + "\n".join(
+                f"  h={r['horizon']:<2} direct {r['mae']:,.0f} vs diff "
+                f"{next(x['mae'] for x in need_rows if (x['model'], x['horizon'], x['season']) == ('diff', r['horizon'], 'winter')):,.0f}"
+                f"  DM p={r['dm_p']:.3f} -> {need_pick[r['horizon']]}"
+                for r in need_rows if r["model"] == "direct" and r["season"] == "winter"), flush=True)
         all_rows += rows
         print(f"✔ backtest ({weather}) in {time.time() - t:.0f}s; winter MAE (MAPE):\n{_table(rows)}", flush=True)
         print("  Diebold-Mariano (winter), ladder model vs next simpler:\n" + "\n".join(

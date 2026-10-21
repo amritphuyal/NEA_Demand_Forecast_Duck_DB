@@ -102,3 +102,28 @@ def test_import_need_compare_diff_and_no_mape():
     mae = {(r["model"], r["season"]): r["mae"] for r in rows}
     assert mae[("diff", "winter")] == 1.0 and mae[("direct", "winter")] == 5.0
     assert pick == {1: "diff"} and all(r["mape"] is None for r in rows)
+
+
+def _months(start, n):
+    out, m = [], start
+    for _ in range(n):
+        out.append(m)
+        m = date(m.year + (m.month == 12), m.month % 12 + 1, 1)
+    return out
+
+
+def test_snaive_growth_exact_on_growing_seasonal_series():
+    ms = _months(date(2019, 1, 1), 72)
+    season = [1.0, 0.9, 1.1, 1.2, 1.0, 0.8, 0.9, 1.0, 1.1, 1.3, 1.2, 1.0]
+    s = {m: 100 * season[m.month - 1] * 1.1 ** (i / 12) for i, m in enumerate(ms)}
+    origin, targets = date(2023, 6, 1), [date(2023, 11, 1), date(2024, 2, 1)]
+    pred = model.m_snaive_growth({m: v for m, v in s.items() if m <= origin}, None, targets, True)
+    assert pred == pytest.approx([s[t] for t in targets], rel=1e-9)
+
+
+def test_combo_is_mean():
+    s = {m: 100.0 + i for i, m in enumerate(_months(date(2019, 1, 1), 60))}
+    t = [date(2024, 1, 1) + timedelta(31 * i) for i in range(3)]
+    t = [d.replace(day=1) for d in t]
+    parts = [f(s, None, t, True) for k, f in model.MONTHLY_MODELS.items() if k != "combo"]
+    assert model.MONTHLY_MODELS["combo"](s, None, t, True) == pytest.approx([sum(x) / len(x) for x in zip(*parts)])

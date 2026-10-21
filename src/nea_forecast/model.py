@@ -380,6 +380,25 @@ def run_backtest(con) -> dict:
             f"  {r['target']:24} h={r['horizon']:<2} {r['model']} vs {r['dm_vs']}: p={r['dm_p']:.3f}"
             for r in sorted(rows, key=lambda r: (r["target"], r["horizon"]))
             if r["season"] == "winter" and r.get("dm_vs")), flush=True)
+    t = time.time()
+    print("▶ monthly winter outlook backtest (origins 31 Oct 2024, 2025)", flush=True)
+    mf = monthly_frame(con)
+    m_rows, m_err = monthly_backtest(mf)
+    all_rows += m_rows
+    chosen.update({f"{k}|monthly": v for k, v in select_monthly(m_err).items()})
+    print(f"✔ monthly in {time.time() - t:.0f}s; MAE GWh (MAPE) by months ahead (1 = Nov):", flush=True)
+    for target in ("demand_gwh", "import_gwh"):
+        for name in MONTHLY_MODELS:
+            cells = [next((f"{r['mae']:6.0f}" + (f" ({r['mape']:.1f}%)" if r["mape"] is not None else "")
+                           for r in m_rows if (r["model"], r["target"], r["horizon"]) == (name, target, k)), "")
+                     for k in range(1, WINTER_MONTHS + 1)]
+            print(f"  {target:11} {name:13} " + " | ".join(f"{c:>15}" for c in cells), flush=True)
+    for yr in (2024, 2025):
+        sel = chosen["demand_gwh|monthly"]
+        fc = {e[1]: e[3] for (n, tg, _), es in m_err.items() if n == sel and tg == "demand_gwh"
+              for e in es if e[0].year == yr}
+        print(f"  winter {yr}/{(yr + 1) % 100}:" + gdp_crosscheck(con, mf, fc)[1:], flush=True)
+    print(f"  chart {chart_monthly(mf, m_err)}", flush=True)
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / "selection.json").write_text(json.dumps(chosen, indent=1))
     print("✔ selection (winter MAE >5% better and DM p<0.10 to climb):\n" +
@@ -393,3 +412,166 @@ def run_backtest(con) -> dict:
            ("run_id", "model", "target", "horizon", "season", "weather"))
     print(f"✔ saved {len(all_rows)} metric rows as {run_id}; chart {chart_daily(all_rows)}", flush=True)
     return {"run_id": run_id, "rows": all_rows}
+
+
+# ---------- monthly winter outlook ----------
+
+CUSTOMS_TO_NEA = 1.09  # customs import / NEA report import over 53 months (EDA reconciliation)
+WINTER_MONTHS = 6  # Nov..Apr = months ahead 1..6 from an end-October origin
+
+
+def _add_months(m: date, k: int) -> date:
+    i = m.year * 12 + m.month - 1 + k
+    return date(i // 12, i % 12 + 1, 1)
+
+
+def monthly_frame(con) -> dict:
+    """AD-month series: demand GWh (NEA report, BS month -> AD month it starts in), import GWh (customs scaled
+    to NEA level), discharge anomaly vs 2010-2022 same-month mean."""
+    demand = dict(con.execute(
+        "SELECT c.date, r.national_demand FROM gold.report_monthly_balance r JOIN silver.dim_calendar c "
+        "ON c.fiscal_year = r.fy AND c.bs_month = r.bs_month AND c.bs_day = 1 "
+        "WHERE r.unit = 'GWh' AND r.national_demand IS NOT NULL").fetchall())
+    imp = {m: v / 1000 / CUSTOMS_TO_NEA for m, v in con.execute(
+        "SELECT month, month_value FROM silver.india_trade_monthly "
+        "WHERE direction = 'nepal_import' AND measure = 'mwh'").fetchall()}
+    q = dict(con.execute("SELECT date_trunc('month', date)::DATE, avg(discharge_index) FROM gold.daily_features "
+                         "WHERE discharge_index IS NOT NULL GROUP BY 1").fetchall())
+    clim = {}
+    for m, v in q.items():
+        if CLIM_YEARS[0] <= m <= CLIM_YEARS[1]:
+            clim.setdefault(m.month, []).append(v)
+    anom = {m: v / (sum(clim[m.month]) / len(clim[m.month])) - 1 for m, v in q.items()}
+    return {"demand_gwh": {d.replace(day=1): v for d, v in demand.items()}, "import_gwh": imp, "q_anom": anom}
+
+
+# availability at an end-October origin: annual report covers the fiscal year to Ashadh (AD June label),
+# customs lag ~2 months. Backtests use only what was published by then.
+LAST_AVAILABLE = {"demand_gwh": 6, "import_gwh": 8}
+LOG_TARGET = {"demand_gwh": True, "import_gwh": False}  # import ~0 in monsoon: no log, no growth ratio
+
+
+def m_snaive_growth(s: dict, q, targets: list[date], log: bool) -> list[float]:
+    """Same month last year (or two years back if missing) x (1 + median year-on-year growth of the last
+    12 observed months). No growth for import (crosses ~0)."""
+    last = max(s)
+    yoy = [s[m] / s[_add_months(m, -12)] for m in s if m > _add_months(last, -12) and _add_months(m, -12) in s
+           and s[_add_months(m, -12)]]
+    g = sorted(yoy)[len(yoy) // 2] if yoy and log else 1.0
+    out = []
+    for t in targets:
+        k = next(k for k in range(1, 6) if _add_months(t, -12 * k) in s)
+        out.append(s[_add_months(t, -12 * k)] * g ** k)
+    return out
+
+
+def m_linear(s: dict, q, targets: list[date], log: bool) -> list[float]:
+    """OLS: (log) y ~ trend + month dummies + discharge anomaly; future anomaly = last observed (persistence)."""
+    q = q or {}
+    ms = sorted(s)
+    last_q = next((q[m] for m in sorted(q, reverse=True) if m <= ms[-1]), 0.0)
+    row = lambda m, qa: [1.0, (m.year - 2020) * 12 + m.month] + [float(m.month == k) for k in range(2, 13)] + [qa]  # noqa: E731
+    X = np.array([row(m, q.get(m, 0.0)) for m in ms])
+    y = np.array([math.log(s[m]) if log else s[m] for m in ms])
+    beta = np.linalg.lstsq(X, y, rcond=None)[0]
+    pred = np.array([row(t, last_q) for t in targets]) @ beta
+    return list(np.exp(pred) if log else pred)
+
+
+def m_ets(s: dict, q, targets: list[date], log: bool) -> list[float]:
+    """Holt-Winters (statsmodels): damped additive trend, additive 12-month season, on log y for demand.
+    Gaps are filled by linear interpolation (ETS needs a regular series)."""
+    import warnings
+    from statsmodels.tsa.holtwinters import ExponentialSmoothing
+    ms = sorted(s)
+    grid = [ms[0]]
+    while grid[-1] < ms[-1]:
+        grid.append(_add_months(grid[-1], 1))
+    ys = np.array([s.get(m, np.nan) for m in grid], dtype=float)
+    ys = np.interp(np.arange(len(grid)), np.flatnonzero(~np.isnan(ys)), ys[~np.isnan(ys)])
+    ys = np.log(ys) if log else ys
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")  # convergence chatter on short series
+        fit = ExponentialSmoothing(ys, trend="add", damped_trend=True, seasonal="add",
+                                   seasonal_periods=12).fit()
+    steps = [(t.year - grid[-1].year) * 12 + t.month - grid[-1].month for t in targets]
+    fc = fit.forecast(max(steps))
+    out = np.array([fc[k - 1] for k in steps])
+    return list(np.exp(out) if log else out)
+
+
+def m_combo(s: dict, q, targets: list[date], log: bool) -> list[float]:
+    """Equal-weight mean of the three (M4: combinations beat single methods)."""
+    parts = [f(s, q, targets, log) for f in (m_snaive_growth, m_linear, m_ets)]
+    return [sum(x) / len(x) for x in zip(*parts)]
+
+
+MONTHLY_MODELS = {"snaive_growth": m_snaive_growth, "linear_m": m_linear, "ets": m_ets, "combo": m_combo}
+
+
+def monthly_backtest(mf: dict, winters: tuple[int, ...] = (2024, 2025)) -> tuple[list[dict], dict]:
+    """Origin = 31 Oct of each year; forecast Nov..Apr with data published by then. Errors keyed like daily."""
+    errors = {}
+    for target in ("demand_gwh", "import_gwh"):
+        for yr in winters:
+            s = {m: v for m, v in mf[target].items() if m <= date(yr, LAST_AVAILABLE[target], 1)}
+            targets = [_add_months(date(yr, 10, 1), k) for k in range(1, WINTER_MONTHS + 1)]
+            actual = [(t, mf[target].get(t)) for t in targets]
+            for name, f in MONTHLY_MODELS.items():
+                preds = f(s, mf["q_anom"], targets, LOG_TARGET[target])
+                preds = preds if LOG_TARGET[target] else [max(0.0, x) for x in preds]  # gross import >= 0
+                for k, ((t, y), p) in enumerate(zip(actual, preds), 1):
+                    if y is not None:
+                        errors.setdefault((name, target, k), []).append((date(yr, 10, 31), t, y, p))
+    rows = []
+    for (name, target, k), es in errors.items():
+        mape = 100 * sum(abs(y - p) / abs(y) for _, _, y, p in es) / len(es) if LOG_TARGET[target] else None
+        rows.append({"model": name, "target": target, "horizon": k, "season": "winter", "weather": "clim",
+                     "mae": sum(abs(y - p) for _, _, y, p in es) / len(es), "mape": mape, "n": len(es), "dm_p": None})
+    return rows, errors
+
+
+def select_monthly(errors: dict) -> dict[str, str]:
+    """Per target: a model is used only if it has the lowest MAE in every hold-out winter; else combo."""
+    out = {}
+    for target in ("demand_gwh", "import_gwh"):
+        wins = {}
+        for (name, t, _), es in errors.items():
+            if t == target:
+                for o, _, y, p in es:
+                    wins.setdefault(o.year, {}).setdefault(name, []).append(abs(y - p))
+        best = {yr: min(d, key=lambda n: sum(d[n]) / len(d[n])) for yr, d in wins.items()}
+        out[target] = best[min(best)] if len(set(best.values())) == 1 else "combo"
+    return out
+
+
+def chart_monthly(mf: dict, errors: dict) -> str:
+    fig, axes = plt.subplots(1, 2, figsize=(13, 4))
+    for ax, target in zip(axes, ("demand_gwh", "import_gwh")):
+        lo = date(2023, 7, 1)
+        act = sorted((m, v) for m, v in mf[target].items() if m >= lo)
+        ax.plot(*zip(*act), color="black", lw=1.5, label="actual")
+        for i, name in enumerate(MONTHLY_MODELS):
+            for yr in sorted({e[0].year for es in errors.values() for e in es}):  # one line per winter
+                pts = sorted({(e[1], e[3]) for (n, t, _), es in errors.items() if n == name and t == target
+                              for e in es if e[0].year == yr})
+                ax.plot(*zip(*pts), marker=".", lw=0.8, color=f"C{i}", label=name if yr == 2024 else None)
+        ax.set(title=f"{target}: hold-out winters (origin 31 Oct)", ylabel="GWh / month")
+        ax.legend(fontsize=8)
+    fig.tight_layout()
+    return _save(fig, "backtest_monthly")
+
+
+def gdp_crosscheck(con, mf: dict, forecast: dict[date, float]) -> str:
+    """Winter demand total vs last winter x (1 + 2.6 x recent GDP growth); >10% apart is flagged."""
+    g = con.execute("SELECT avg(v / lag_v - 1) FROM (SELECT value v, lag(value) OVER (ORDER BY year) lag_v, year "
+                    "FROM silver.macro_yearly WHERE indicator = 'NY.GDP.MKTP.KD') WHERE year >= "
+                    "(SELECT max(year) - 2 FROM silver.macro_yearly WHERE indicator = 'NY.GDP.MKTP.KD')").fetchone()[0]
+    prev = [_add_months(m, -12) for m in forecast]
+    if not all(p in mf["demand_gwh"] for p in prev):
+        return "  gdp cross-check: previous winter incomplete, skipped"
+    base = sum(mf["demand_gwh"][p] for p in prev) * (1 + 2.6 * g)
+    fc = sum(forecast.values())
+    gap = fc / base - 1
+    return (f"  gdp cross-check: forecast winter {fc:,.0f} GWh vs GDP path {base:,.0f} GWh (GDP growth {g:.1%} x "
+            f"elasticity 2.6): {gap:+.1%}{'  <-- FLAG >10%' if abs(gap) > 0.10 else ''}")

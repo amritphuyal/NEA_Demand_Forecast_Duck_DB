@@ -24,7 +24,7 @@ Both are scored with MAE only (the series crosses zero, so MAPE is meaningless).
 
 ## Monthly
 
-Customs import 2017 → is scaled ×1.09 to the NEA report level (EDA reconciliation, customs vs NDOR corr 0.99). It is forecast with the [monthly outlook](monthly-outlook.md) models. As a cross-check: monthly demand outlook − generation implied by discharge climatology.
+Customs import 2017 → is scaled ÷1.09 to the NEA report level (customs reads 9% higher) (EDA reconciliation, customs vs NDOR corr 0.99). It is forecast with the [monthly outlook](monthly-outlook.md) models. As a cross-check: monthly demand outlook − generation implied by discharge climatology.
 
 ## Evidence
 

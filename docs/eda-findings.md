@@ -57,6 +57,6 @@ The NEA report is in BS months (start mid-AD-month), so its error vs AD-month so
 Rule: keep a feature if |corr| ≥ 0.3 or effect ≥ 5%.
 
 1. **Daily model** (targets `requirement_mwh`, `peak_demand_mw`, `net_exchange_india_mwh`; NDOR period only): keep weekday/Saturday, holiday, `tmean_terai`, `discharge_index` (same day + 7-day mean). `tmin_ktm` is under the bar (0.24): let LightGBM test it, but leave it out of the statistical models. Two winters only → forecasts 7–30 days ahead, backtested on winter 2024/25.
-2. **Monthly winter outlook:** demand = NEA report monthly balance (53 months ≥ 48 → enough), trended by the 12%/yr growth / GDP elasticity. Import = customs monthly (2017 →, latest), scaled ×1.09 to the NEA report level.
+2. **Monthly winter outlook:** demand = NEA report monthly balance (53 months ≥ 48 → enough), trended by the 12%/yr growth / GDP elasticity. Import = customs monthly (2017 →, latest), scaled ÷1.09 to the NEA report level (customs reads 9% higher).
 3. **Import need:** generation tracks discharge (0.82 ≥ 0.6) → model it as demand − domestic generation (generation from discharge), and also model import directly; compare both in the backtest.
 4. **Still missing:** daily data after Jan 2025 (NEA request), DHM gauge data (email sent), Kulekhani level (no source).

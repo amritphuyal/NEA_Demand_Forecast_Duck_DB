@@ -136,7 +136,7 @@ docs/model/*.png, docs/model-results.md, docs/models/*.md (Results sections)
 - `uv add statsmodels`.
 - `monthly_frame(con)` returns rows keyed by AD month:
   - `demand_gwh` from the report (BS → AD start month)
-  - `import_gwh` from customs ×1.09
+  - `import_gwh` from customs ÷1.09 (customs reads 9% above NEA)
   - `discharge_anom`
 - Models:
   - `snaive_growth`

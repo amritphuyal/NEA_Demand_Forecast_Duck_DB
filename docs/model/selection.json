@@ -22,5 +22,7 @@
  "import_need_method|1": "diff",
  "import_need_method|7": "diff",
  "import_need_method|14": "diff",
- "import_need_method|30": "diff"
+ "import_need_method|30": "diff",
+ "demand_gwh|monthly": "combo",
+ "import_gwh|monthly": "combo"
 }

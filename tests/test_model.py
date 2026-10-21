@@ -139,3 +139,13 @@ def test_intervals_quantiles_and_coverage():
     es = [(d, d, float(r), 0.0) for d, r in zip(days, rng.uniform(-10, 10, 300))]
     cov, pin, n = model.score_intervals({("m", T, 1): es})[("m", T, 1, "all")]
     assert cov == pytest.approx(0.8, abs=0.08) and n > 200
+
+
+def test_winter_months_and_daily_ready():
+    assert model.winter_months(date(2026, 10, 26)) == model._months_list(date(2026, 11, 1), 6)
+    assert model.winter_months(date(2027, 1, 15)) == [date(2027, 2, 1), date(2027, 3, 1), date(2027, 4, 1)]
+    today = date(2026, 10, 30)
+    frame = {today - timedelta(i): {T: 1.0} for i in range(1, 4)}  # 3 widget days
+    assert model.daily_ready(frame, today) == 3
+    frame.update({today - timedelta(i): {T: 1.0} for i in range(1, 9)})
+    assert model.daily_ready(frame, today) == 8

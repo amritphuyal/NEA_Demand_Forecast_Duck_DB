@@ -16,7 +16,7 @@ One page that explains and defends **what** we forecast, **with which models**, 
 1. **Data size.** We have 612 daily points (two winters), 53 monthly points and 14 annual points. Deep learning needs far more. On a Nepal national peak-load series, LSTM beat a 30-day moving average by 0.05 MAPE points [lit 3]. Tree models and even linear models beat deep networks on tabular data of this size [lit 27, 28].
 2. **What wins in load forecasting.** Regression with temperature, calendar and trend is in every winning GEFCom entry, and the "vanilla benchmark" is exactly that [lit 19–22]. Our ridge model is that benchmark adapted to Nepal (two temperature regions, holidays, river discharge).
 3. **Climb, then stop.** Each step must beat the one below it on **winter** error by more than 5% **and** pass a Diebold–Mariano test (p < 0.10). Otherwise the simpler model is used. That makes the choice of a complex model something the data has to prove; it isn't assumed.
-4. **Laptop.** Everything trains in seconds on CPU. The only dependencies are numpy, lightgbm (dropped if never selected) and statsmodels (ETS).
+4. **Laptop.** The full backtest (5 targets × 4 horizons × 5 models × 2 weather modes + monthly) runs in about 75 s on CPU; the live forecast in about 3 s. Dependencies: numpy, statsmodels (ETS) and lightgbm (challenger only; no live forecast uses it).
 
 ## 3. How the models are tested (defend these points first)
 
@@ -40,5 +40,5 @@ One page that explains and defends **what** we forecast, **with which models**, 
 ## 5. Where results live
 
 - Lake: `ml.backtest_metrics` (every model × target × horizon × season, with `n`), `ml.forecasts` (with P10/P90).
-- Docs: each model doc has a **Results** section filled from the backtest; the summary with charts is in `docs/model-results.md`.
+- Docs: each model doc has a **Results** section filled from the backtest; the summary with charts is in [../model-results.md](../model-results.md).
 - Commands: `nea model` (backtest), `nea forecast` (live). Logs: `data/logs/<time>-model.log`.

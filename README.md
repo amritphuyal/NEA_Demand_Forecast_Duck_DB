@@ -12,6 +12,8 @@ uv run playwright install chromium     # fallback fetcher for NEA's bot protecti
 uv run nea ingest all                  # incremental: only new data is fetched
 uv run nea status                      # rows + date range per table
 uv run nea eda                         # analysis numbers + charts -> docs/eda/
+uv run nea model                       # backtest + model selection -> ml.backtest_metrics, docs/model/
+uv run nea forecast                    # live forecasts with P10/P90 -> ml.forecasts
 uv run pytest                          # offline tests
 ```
 
@@ -36,6 +38,7 @@ FROM lake.gold.daily_features LIMIT 5;
 | `docs/data-sources.md` | Every source researched, status, extra data points |
 | `docs/eda-findings.md` | EDA results + Phase 3 model inputs |
 | `docs/models/` | Forecasting approach + one doc per model + literature review (defence of the method) |
+| `docs/model-results.md` | What ships, backtest results, live winter outlook |
 | `docs/developer/decisions.md` | Architecture decisions + change log |
 | `docs/superpowers/plans/` | Phase implementation plans |
 

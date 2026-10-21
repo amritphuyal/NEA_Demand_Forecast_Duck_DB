@@ -30,5 +30,7 @@ NEA fetches use headless real Chrome (automation flags masked). If F5 starts blo
 
 ```cron
 0 */3 * * * cd /path/to/repo && uv run nea ingest all >> data/ingest.log 2>&1
+30 6 * * * cd /path/to/repo && uv run nea forecast >> data/ingest.log 2>&1   # daily: winter outlook (+ daily once the widget has 8 days)
+# re-run `nea model` (backtest + selection) after each winter, or when models change
 0 4 * * 0   cd /path/to/repo && uv run nea maintain   >> data/ingest.log 2>&1
 ```

@@ -63,6 +63,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("maintain", help="compact lake files, expire old snapshots")
     sub.add_parser("eda", help="exploratory analysis: numbers + charts to docs/eda/")
     sub.add_parser("model", help="backtest forecasting models -> ml.backtest_metrics, docs/model/")
+    sub.add_parser("forecast", help="live forecasts (winter outlook; daily when enough recent data) -> ml.forecasts")
     se = sub.add_parser("search", help="regex search through downloaded NEA report Markdown")
     se.add_argument("pattern")
     args = ap.parse_args(argv)
@@ -97,6 +98,10 @@ def main(argv: list[str] | None = None) -> int:
     elif args.cmd == "model":
         con = connect()
         model.run_backtest(con)
+        con.close()
+    elif args.cmd == "forecast":
+        con = connect()
+        model.forecast(con)
         con.close()
     elif args.cmd == "status":
         status(connect())

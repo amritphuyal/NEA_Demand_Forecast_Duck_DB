@@ -624,3 +624,117 @@ def gdp_crosscheck(con, mf: dict, forecast: dict[date, float]) -> str:
     gap = fc / base - 1
     return (f"  gdp cross-check: forecast winter {fc:,.0f} GWh vs GDP path {base:,.0f} GWh (GDP growth {g:.1%} x "
             f"elasticity 2.6): {gap:+.1%}{'  <-- FLAG >10%' if abs(gap) > 0.10 else ''}")
+
+
+# ---------- live forecast ----------
+
+MIN_LIVE_DAYS = 8  # consecutive daily rows ending yesterday: 7-day features + today
+
+
+def _months_list(start: date, n: int) -> list[date]:
+    return [_add_months(start, k) for k in range(n)]
+
+
+def winter_months(today: date) -> list[date]:
+    """Remaining months of the current or coming Nov-Apr winter, strictly after today's month."""
+    start = date(today.year if today.month >= 5 else today.year - 1, 11, 1)
+    return [m for m in _months_list(start, WINTER_MONTHS) if m > today.replace(day=1)]
+
+
+def daily_ready(frame: dict, today: date) -> int:
+    """Consecutive days with data ending yesterday."""
+    n = 0
+    while today - timedelta(n + 1) in frame:
+        n += 1
+    return n
+
+
+def forecast(con, today: date | None = None) -> int:
+    """Live run: monthly winter outlook always; daily 1-30 d only with >= 8 consecutive recent days."""
+    today = today or date.today()
+    run_id, now, rows = f"live-{today:%Y%m%d}", datetime.now(), []
+    chosen = json.loads((OUT / "selection.json").read_text())
+
+    t = time.time()
+    print(f"▶ monthly outlook from {today}: start", flush=True)
+    mf = monthly_frame(con)
+    _, m_err = monthly_backtest(mf)  # hold-out residuals -> intervals (12 per target: indicative)
+    months = winter_months(today)
+    for target in ("demand_gwh", "import_gwh"):
+        name = chosen.get(f"{target}|monthly", "combo")
+        s = mf[target]
+        preds = MONTHLY_MODELS[name](s, mf["q_anom"], months, LOG_TARGET[target])
+        res = [e[2] - e[3] for (n, tg, _), es in m_err.items() if n == name and tg == target for e in es]
+        lo, hi = interval(res)
+        last = max(s)
+        for m, p in zip(months, preds):
+            p = p if LOG_TARGET[target] else max(0.0, p)
+            rows.append({"run_id": run_id, "model": name, "target": target, "origin": today, "date": m,
+                         "horizon": (m.year - last.year) * 12 + m.month - last.month, "yhat": p,
+                         "p10": max(0.0, p + lo) if not LOG_TARGET[target] else p + lo, "p90": p + hi,
+                         "created_at": now})
+        print(f"  {target} ({name}, data to {last:%Y-%m}): " + ", ".join(
+            f"{r['date']:%b %Y} {r['yhat']:,.0f} [{r['p10']:,.0f}-{r['p90']:,.0f}]"
+            for r in rows if r["target"] == target), flush=True)
+    fc = {r["date"]: r["yhat"] for r in rows if r["target"] == "demand_gwh"}
+    print(gdp_crosscheck(con, mf, fc), flush=True)
+    print(f"✔ monthly outlook in {time.time() - t:.0f}s", flush=True)
+
+    c = load(con)
+    n = daily_ready(c["frame"], today)
+    if n < MIN_LIVE_DAYS:
+        print(f"  daily skipped: widget has {n} consecutive day(s) up to yesterday (need {MIN_LIVE_DAYS}); "
+              "keep `nea ingest widget` running daily", flush=True)
+    else:
+        rows += _daily_live(c, chosen, today, run_id, now)
+    upsert(con, "ml.forecasts", rows, ("run_id", "model", "target", "origin", "date"))
+    print(f"✔ saved {len(rows)} forecasts as {run_id}; chart {chart_live(mf, rows, run_id)}", flush=True)
+    return len(rows)
+
+
+def _daily_live(c: dict, chosen: dict, today: date, run_id: str, now) -> list[dict]:
+    """Selected model per target/horizon, trained on all history; interval from its backtest errors.
+    ERA5 lags ~5 days: missing recent weather -> climatology (anomaly 0)."""
+    t = time.time()
+    origin = today - timedelta(1)
+    for k in range(7):
+        d = origin - timedelta(k)
+        c["wx"].setdefault(d, {w: c["clim"][(w, _doy(d))] for w in WX})
+    rows = []
+    for target in ("requirement_mwh", "peak_demand_mw", "domestic_gen_mwh"):
+        for h in HORIZONS:
+            name = chosen[f"{target}|{h}"]
+            fn = {**BASELINES, **MODELS}[name]
+            _, errs = backtest(c, {name: fn}, [target], [h], "clim")
+            hist = [(x, yv) for o, x, yv in _rows(c, target, h, "clim")]
+            x = features(c, origin, h, target)
+            if x is None:
+                continue
+            p = fn(hist, [x])[0]
+            lo, hi = interval([e[2] - e[3] for e in errs[(name, target, h)]][-WINDOW:])
+            rows.append({"run_id": run_id, "model": name, "target": target, "horizon": h, "origin": origin,
+                         "date": origin + timedelta(h), "yhat": p, "p10": p + lo, "p90": p + hi, "created_at": now})
+    by = {(r["target"], r["horizon"]): r for r in rows}
+    for h in HORIZONS:  # import need = demand - generation (diff method, docs/models/import-need.md)
+        if ("requirement_mwh", h) in by and ("domestic_gen_mwh", h) in by:
+            r, g = by[("requirement_mwh", h)], by[("domestic_gen_mwh", h)]
+            rows.append({**r, "model": "diff", "target": "import_need_mwh", "yhat": r["yhat"] - g["yhat"],
+                         "p10": r["p10"] - g["p90"], "p90": r["p90"] - g["p10"]})  # ponytail: conservative bounds
+    print(f"✔ daily forecast: {len(rows)} rows in {time.time() - t:.0f}s", flush=True)
+    return rows
+
+
+def chart_live(mf: dict, rows: list[dict], run_id: str) -> str:
+    fig, axes = plt.subplots(1, 2, figsize=(13, 4))
+    for ax, target in zip(axes, ("demand_gwh", "import_gwh")):
+        act = sorted((m, v) for m, v in mf[target].items() if m >= date(2023, 7, 1))
+        ax.plot(*zip(*act), color="black", lw=1.2, label="actual")
+        fr = sorted((r["date"], r["yhat"], r["p10"], r["p90"]) for r in rows if r["target"] == target)
+        if fr:
+            d, y, lo, hi = zip(*fr)
+            ax.plot(d, y, marker="o", color="C3", label="forecast")
+            ax.fill_between(d, lo, hi, color="C3", alpha=0.2, label="P10-P90")
+        ax.set(title=f"{target}: winter outlook ({run_id})", ylabel="GWh / month")
+        ax.legend(fontsize=8)
+    fig.tight_layout()
+    return _save(fig, f"forecast_{run_id}")

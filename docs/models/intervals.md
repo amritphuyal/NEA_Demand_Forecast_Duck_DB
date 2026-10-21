@@ -30,9 +30,10 @@ Run of 2026-10-26 (`nea model`). Winter coverage of [P10, P90] for the selected 
 | peak | 91% | 92% | 92% | 97% |
 | domestic gen | 94% | 89% | 80% | 97% |
 | net exchange | 84% | 88% | 98% | **67%** |
-| import need | 81% | 92% | 97% | **58%** |
+| import need (direct model) | 81% | 92% | 97% | **58%** |
 
 - **Demand, peak and generation: too wide (cautious).** 89–97% fall inside instead of 80%. The 60-error window at winter origins is mostly monsoon/autumn errors, which are larger. For planning, an interval that is too wide is the safe failure.
 - **Import at 30 days: too narrow.** Winter import swings harder than the summer errors in the window suggest. Read these as "at least this uncertain".
 - **Why not fixed now:** the fix is a winter-only error window. But out-of-sample errors start in May 2024, so no earlier winter exists to fill it, and tuning the window on the one test winter would be fitting to the test. Once the widget gives a second winter of daily data, switch to same-season windows (one parameter in `_bounds`).
+- Live import need (difference method) uses deliberately conservative bounds: demand P10 − generation P90 and demand P90 − generation P10.
 - 3,270 backtest forecasts with P10/P90 are stored in `ml.forecasts` (run_id `bt-*`) for the site.

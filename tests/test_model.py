@@ -149,3 +149,17 @@ def test_winter_months_and_daily_ready():
     assert model.daily_ready(frame, today) == 3
     frame.update({today - timedelta(i): {T: 1.0} for i in range(1, 9)})
     assert model.daily_ready(frame, today) == 8
+
+
+def test_outage_loss_window_and_storage():
+    outs = [{"capacity_mw": 100.0, "kind": "hydro_ror", "status": "destroyed", "outage_start": date(2026, 8, 26),
+             "expected_return": None, "winter_energy_gwh": None},
+            {"capacity_mw": 50.0, "kind": "hydro_ror", "status": "offline_transmission", "outage_start": date(2026, 8, 26),
+             "expected_return": date(2026, 12, 1), "winter_energy_gwh": None},
+            {"capacity_mw": 0.0, "kind": "storage", "status": "reduced_storage", "outage_start": date(2026, 8, 26),
+             "expected_return": None, "winter_energy_gwh": 20.0}]
+    f = {"hydro_ror": 0.5}
+    assert model.outage_loss(outs, f, date(2026, 11, 1)) == pytest.approx((150 * 0.5 * 24 * 30 / 1000, 36.0))
+    tot, des = model.outage_loss(outs, f, date(2027, 1, 1))  # transmission back; storage share 20/4
+    assert tot == pytest.approx(100 * 0.5 * 24 * 31 / 1000 + 5) and des == pytest.approx(37.2)
+    assert model.outage_loss(outs, f, date(2026, 7, 1)) == (0.0, 0.0)  # before the flood

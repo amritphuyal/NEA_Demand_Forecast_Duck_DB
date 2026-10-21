@@ -5,7 +5,8 @@ from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 
-from nea_forecast import calendar, cerc, eda, model, dhm, india_trade, ndor, nea_docs, nea_widget, ocr, open_meteo, reports, world_bank
+from nea_forecast import (calendar, cerc, dhm, eda, india_trade, model, ndor, nea_docs, nea_widget, ocr, open_meteo, outages,
+                          reports, world_bank)
 from nea_forecast.lake import connect
 
 # name -> ingest(con) -> rows written
@@ -17,6 +18,8 @@ INGESTERS: dict[str, Callable] = {
     "ocr": ocr.ingest,  # after docs: balance tables printed as images (~30 s/page, cached)
     "weather": open_meteo.ingest_weather,
     "discharge": open_meteo.ingest_discharge,
+    "discharge_forecast": open_meteo.ingest_discharge_forecast,  # GloFAS ~7 months ahead, for live forecasts
+    "outages": outages.ingest,  # outages.json: flood-damaged plants etc.
     "dhm": dhm.ingest,
     "calendar": calendar.ingest,
     "macro": world_bank.ingest,
@@ -64,10 +67,12 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("eda", help="exploratory analysis: numbers + charts to docs/eda/")
     sub.add_parser("model", help="backtest forecasting models -> ml.backtest_metrics, docs/model/")
     sub.add_parser("forecast", help="live forecasts (winter outlook; daily when enough recent data) -> ml.forecasts")
+    q = sub.add_parser("sql", help="run a read-only SQL query on the lake, e.g. nea sql \"FROM ml.forecasts LIMIT 5\"")
+    q.add_argument("query")
     se = sub.add_parser("search", help="regex search through downloaded NEA report Markdown")
     se.add_argument("pattern")
     args = ap.parse_args(argv)
-    if argv is None:  # real CLI run (not tests): keep a log per run
+    if argv is None and args.cmd != "sql":  # real CLI run (not tests): keep a log per run (not for ad-hoc queries)
         sys.stdout = _Tee(Path("data/logs") / f"{datetime.now():%Y%m%d-%H%M%S}-{args.cmd}.log")
         sys.stderr = sys.stdout  # tracebacks and library warnings land in the log too
 
@@ -102,6 +107,10 @@ def main(argv: list[str] | None = None) -> int:
     elif args.cmd == "forecast":
         con = connect()
         model.forecast(con)
+        con.close()
+    elif args.cmd == "sql":
+        con = connect(read_only=True)
+        con.sql(args.query).show(max_rows=100, max_width=250)
         con.close()
     elif args.cmd == "status":
         status(connect())

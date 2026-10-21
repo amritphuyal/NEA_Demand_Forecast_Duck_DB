@@ -54,3 +54,26 @@ def ingest_weather(con, root: Path = Path("data")) -> int:
 def ingest_discharge(con, root: Path = Path("data")) -> int:
     return _ingest(con, root, "open_meteo_discharge", "discharge", "https://flood-api.open-meteo.com/v1/flood",
                    FLOOD, "silver.river_discharge_daily", {})
+
+
+FORECAST = {"river_discharge_mean": "discharge_m3s", "river_discharge_p25": "p25", "river_discharge_p75": "p75"}
+
+
+def ingest_discharge_forecast(con, root: Path = Path("data")) -> int:
+    """GloFAS forecast to ~7 months ahead (daily 30-day + seasonal), ensemble mean/p25/p75, all points in
+    one request. Kept per issue date so past forecasts stay queryable (and can be scored later)."""
+    pts = load_sources()["open_meteo_discharge"]["points"]
+    q = {"latitude": ",".join(str(p["lat"]) for p in pts), "longitude": ",".join(str(p["lon"]) for p in pts),
+         "daily": ",".join(FORECAST), "forecast_days": 210}
+    body = fetch(f"https://flood-api.open-meteo.com/v1/flood?{urlencode(q)}")
+    issued = date.today()
+    raw = Path(root) / "raw" / "open_meteo" / "discharge_forecast"
+    raw.mkdir(parents=True, exist_ok=True)
+    (raw / f"{issued}.json").write_bytes(body)
+    js = json.loads(body)
+    rows = [{"issued": issued, **r} for p, d in zip(pts, js if isinstance(js, list) else [js])
+            for r in parse_daily(d, p["id"], FORECAST)]
+    n = upsert(con, "silver.river_discharge_forecast", rows, ("issued", "date", "point"))
+    span = f"{min(r['date'] for r in rows)} .. {max(r['date'] for r in rows)}" if rows else "none"
+    print(f"  discharge forecast issued {issued}: {len(pts)} points, {span}", flush=True)
+    return n

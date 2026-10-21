@@ -66,7 +66,7 @@ Run `bt-20261026-082239`. Winter origins Nov 2024 → Jan 2025. MAE (MAPE); DM p
 
 **Ex-ante vs ex-post (actual weather):**
 - Demand: h=30 is 4.9% ex-ante vs 5.6% ex-post. Actual weather does **not** help. The weather terms mostly carry the seasonal shape, so a daily weather-forecast feed would add little.
-- Generation: h=30 is 8.8% ex-ante vs **5.4%** ex-post. Actual river flow helps a lot, so a river-flow forecast (GloFAS forecast via Open-Meteo) is the input worth adding for import planning.
+- Generation: h=30 is 8.8% ex-ante vs **5.4%** ex-post, but that needs all weather known. With only river flow known (`q_actual` mode, a perfect river forecast) it is **8.1%**. So most of the gain needs actual weather, which no one has 30 days ahead. The GloFAS forecast is still used live, mainly for the seasonal dry/wet signal: see [river-forecast](river-forecast.md).
 
 **Threshold sensitivity** (winter demand MAPE):
 

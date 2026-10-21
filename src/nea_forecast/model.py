@@ -83,12 +83,15 @@ def features(c: dict, origin: date, h: int, target: str, weather: str = "clim") 
         return None
     w30 = [(30 - i, y(origin - timedelta(i))) for i in range(30)]
     w30 = [(w, v) for w, v in w30 if v is not None]
-    if weather == "actual":
+    tgt = {k: clim[(k, _doy(d))] for k in WX}
+    if weather == "actual":  # ex-post oracle: all target-day weather known
         if d not in wx:
             return None
         tgt = wx[d]
-    else:
-        tgt = {k: clim[(k, _doy(d))] for k in WX}
+    elif weather == "q_actual":  # river flow known (backtest: actual = perfect forecast; live: GloFAS forecast)
+        if d not in wx:
+            return None
+        tgt = {**tgt, "discharge_index": wx[d]["discharge_index"]}
     anom = lambda k, row, day: row[k] - clim[(k, _doy(day))]  # noqa: E731
     dow, hol = c["cal"][d]
     return {"y_t": past7[0], "y_mean7": sum(past7) / 7, "y_snaive": snaive,
@@ -395,7 +398,7 @@ def run_backtest(con) -> dict:
     c = load(con)
     print(f"✔ load: {len(c['frame'])} days, weather {len(c['wx'])} days in {time.time() - t:.1f}s", flush=True)
     models, all_rows = {**BASELINES, **{m: MODELS[m] for m in LADDER}}, []
-    for weather in ("clim", "actual"):
+    for weather in ("clim", "actual", "q_actual"):
         t = time.time()
         print(f"▶ backtest ({weather}): {list(models)} x {len(TARGETS)} targets x {len(HORIZONS)} horizons", flush=True)
         rows, errors = backtest(c, models, TARGETS, HORIZONS, weather)
@@ -490,8 +493,13 @@ def monthly_frame(con) -> dict:
     for m, v in q.items():
         if CLIM_YEARS[0] <= m <= CLIM_YEARS[1]:
             clim.setdefault(m.month, []).append(v)
-    anom = {m: v / (sum(clim[m.month]) / len(clim[m.month])) - 1 for m, v in q.items()}
-    return {"demand_gwh": {d.replace(day=1): v for d, v in demand.items()}, "import_gwh": imp, "q_anom": anom}
+    clim_m = {k: sum(v) / len(v) for k, v in clim.items()}
+    anom = {m: v / clim_m[m.month] - 1 for m, v in q.items()}
+    exp = {m: v / 1000 / CUSTOMS_TO_NEA for m, v in con.execute(
+        "SELECT month, month_value FROM silver.india_trade_monthly "
+        "WHERE direction = 'nepal_export' AND measure = 'mwh'").fetchall()}
+    return {"demand_gwh": {d.replace(day=1): v for d, v in demand.items()}, "import_gwh": imp, "q_anom": anom,
+            "q_clim_month": clim_m, "export_gwh": exp}
 
 
 # availability at an end-October origin: annual report covers the fiscal year to Ashadh (AD June label),
@@ -523,7 +531,7 @@ def m_linear(s: dict, q, targets: list[date], log: bool) -> list[float]:
     X = np.array([row(m, q.get(m, 0.0)) for m in ms])
     y = np.array([math.log(s[m]) if log else s[m] for m in ms])
     beta = np.linalg.lstsq(X, y, rcond=None)[0]
-    pred = np.array([row(t, last_q) for t in targets]) @ beta
+    pred = np.array([row(t, q.get(t, last_q)) for t in targets]) @ beta  # forecast anomaly if given, else persistence
     return list(np.exp(pred) if log else pred)
 
 
@@ -566,8 +574,9 @@ def monthly_backtest(mf: dict, winters: tuple[int, ...] = (2024, 2025)) -> tuple
             s = {m: v for m, v in mf[target].items() if m <= date(yr, LAST_AVAILABLE[target], 1)}
             targets = [_add_months(date(yr, 10, 1), k) for k in range(1, WINTER_MONTHS + 1)]
             actual = [(t, mf[target].get(t)) for t in targets]
+            q = {m: v for m, v in mf["q_anom"].items() if m <= date(yr, 10, 1)}  # no future flow in the backtest
             for name, f in MONTHLY_MODELS.items():
-                preds = f(s, mf["q_anom"], targets, LOG_TARGET[target])
+                preds = f(s, q, targets, LOG_TARGET[target])
                 preds = preds if LOG_TARGET[target] else [max(0.0, x) for x in preds]  # gross import >= 0
                 for k, ((t, y), p) in enumerate(zip(actual, preds), 1):
                     if y is not None:
@@ -660,10 +669,18 @@ def forecast(con, today: date | None = None) -> int:
     mf = monthly_frame(con)
     _, m_err = monthly_backtest(mf)  # hold-out residuals -> intervals (12 per target: indicative)
     months = winter_months(today)
+    q_daily = river_forecast(con)
+    q_live = dict(mf["q_anom"])
+    for m in months:  # GloFAS monthly mean -> anomaly vs 2010-2022 (replaces persistence)
+        v = [x for d, x in q_daily.items() if d.replace(day=1) == m]
+        if len(v) >= 20:
+            q_live[m] = sum(v) / len(v) / mf["q_clim_month"][m.month] - 1
+    print("  river-flow forecast anomaly vs normal: " + ", ".join(
+        f"{m:%b} {q_live[m]:+.0%}" for m in months if m in q_live), flush=True)
     for target in ("demand_gwh", "import_gwh"):
         name = chosen.get(f"{target}|monthly", "combo")
         s = mf[target]
-        preds = MONTHLY_MODELS[name](s, mf["q_anom"], months, LOG_TARGET[target])
+        preds = MONTHLY_MODELS[name](s, q_live, months, LOG_TARGET[target])
         res = [e[2] - e[3] for (n, tg, _), es in m_err.items() if n == name and tg == target for e in es]
         lo, hi = interval(res)
         last = max(s)
@@ -678,9 +695,11 @@ def forecast(con, today: date | None = None) -> int:
             for r in rows if r["target"] == target), flush=True)
     fc = {r["date"]: r["yhat"] for r in rows if r["target"] == "demand_gwh"}
     print(gdp_crosscheck(con, mf, fc), flush=True)
+    rows += outage_adjust(con, mf, [r for r in rows if r["target"] == "import_gwh"])
     print(f"✔ monthly outlook in {time.time() - t:.0f}s", flush=True)
 
     c = load(con)
+    c["q_forecast"] = q_daily
     n = daily_ready(c["frame"], today)
     if n < MIN_LIVE_DAYS:
         print(f"  daily skipped: widget has {n} consecutive day(s) up to yesterday (need {MIN_LIVE_DAYS}); "
@@ -700,14 +719,20 @@ def _daily_live(c: dict, chosen: dict, today: date, run_id: str, now) -> list[di
     for k in range(7):
         d = origin - timedelta(k)
         c["wx"].setdefault(d, {w: c["clim"][(w, _doy(d))] for w in WX})
+    q_fc = c.get("q_forecast", {})
+    for d, v in q_fc.items():  # future river flow from GloFAS; past days keep observed values
+        if d > origin:
+            c["wx"][d] = {"discharge_index": v}
     rows = []
     for target in ("requirement_mwh", "peak_demand_mw", "domestic_gen_mwh"):
         for h in HORIZONS:
             name = chosen[f"{target}|{h}"]
             fn = {**BASELINES, **MODELS}[name]
-            _, errs = backtest(c, {name: fn}, [target], [h], "clim")
-            hist = [(x, yv) for o, x, yv in _rows(c, target, h, "clim")]
-            x = features(c, origin, h, target)
+            # generation follows river flow: with a forecast, use the model trained on known flow
+            mode = "q_actual" if target == "domestic_gen_mwh" and origin + timedelta(h) in q_fc else "clim"
+            _, errs = backtest(c, {name: fn}, [target], [h], mode)
+            hist = [(x, yv) for o, x, yv in _rows(c, target, h, mode) if o + timedelta(h) <= origin]
+            x = features(c, origin, h, target, mode)
             if x is None:
                 continue
             p = fn(hist, [x])[0]
@@ -729,12 +754,65 @@ def chart_live(mf: dict, rows: list[dict], run_id: str) -> str:
     for ax, target in zip(axes, ("demand_gwh", "import_gwh")):
         act = sorted((m, v) for m, v in mf[target].items() if m >= date(2023, 7, 1))
         ax.plot(*zip(*act), color="black", lw=1.2, label="actual")
-        fr = sorted((r["date"], r["yhat"], r["p10"], r["p90"]) for r in rows if r["target"] == target)
-        if fr:
-            d, y, lo, hi = zip(*fr)
-            ax.plot(d, y, marker="o", color="C3", label="forecast")
-            ax.fill_between(d, lo, hi, color="C3", alpha=0.2, label="P10-P90")
+        for i, name in enumerate(sorted({r["model"] for r in rows if r["target"] == target})):
+            d, y, lo, hi = zip(*sorted((r["date"], r["yhat"], r["p10"], r["p90"])
+                                       for r in rows if r["target"] == target and r["model"] == name))
+            col = "C3" if name.endswith("+outage") else "C0"
+            ax.plot(d, y, marker="o", color=col, label=name)
+            ax.fill_between(d, lo, hi, color=col, alpha=0.15, label=f"{name} P10-P90")
         ax.set(title=f"{target}: winter outlook ({run_id})", ylabel="GWh / month")
         ax.legend(fontsize=8)
     fig.tight_layout()
     return _save(fig, f"forecast_{run_id}")
+
+
+def river_forecast(con) -> dict[date, float]:
+    """Latest GloFAS issue: daily discharge_index (sum of the 3 basin points, ensemble mean)."""
+    return dict(con.execute(
+        "SELECT date, sum(discharge_m3s) FROM silver.river_discharge_forecast "
+        "WHERE issued = (SELECT max(issued) FROM silver.river_discharge_forecast) "
+        "AND point IN ('koshi_chatara', 'narayani_devghat', 'karnali_chisapani') GROUP BY date HAVING count(*) = 3"
+    ).fetchall())
+
+
+def outage_loss(outages: list[dict], factors: dict, m: date) -> tuple[float, float]:
+    """(all, destroyed-only) GWh of domestic generation lost in month m: capacity x dry-season factor x hours,
+    plus reservoir shortfall energy spread over Jan-Apr. History has no such outage, so models can't see it."""
+    end = _add_months(m, 1)
+    days = (end - m).days
+    tot = des = 0.0
+    for o in outages:
+        if o["outage_start"] >= end or (o["expected_return"] and o["expected_return"] <= m):
+            continue
+        g = o["capacity_mw"] * factors.get(o["kind"], 0.0) * 24 * days / 1000
+        if o["kind"] == "storage" and m.month in (1, 2, 3, 4):
+            g += (o["winter_energy_gwh"] or 0.0) / 4
+        tot += g
+        des += g if o["status"] == "destroyed" else 0.0
+    return tot, des
+
+
+def outage_adjust(con, mf: dict, base: list[dict]) -> list[dict]:
+    """Import + lost generation not covered by the month's usual export surplus (same month last year).
+    yhat/P90 assume every listed outage lasts all winter; P10 assumes only destroyed plants stay out."""
+    from nea_forecast.outages import OUTAGES_JSON
+    factors = json.loads(OUTAGES_JSON.read_text())["dry_season_factor"]
+    outs = [dict(zip(("capacity_mw", "kind", "status", "outage_start", "expected_return", "winter_energy_gwh"), r))
+            for r in con.execute("SELECT capacity_mw, kind, status, outage_start, expected_return, winter_energy_gwh "
+                                 "FROM silver.plant_outage").fetchall()]
+    if not outs:
+        print("  outage adjustment: no outages registered (nea ingest outages)", flush=True)
+        return []
+    out = []
+    print("  flood/outage adjustment to import (GWh): month  lost-all  lost-destroyed  usual-export  base -> adjusted",
+          flush=True)
+    for r in base:
+        m = r["date"]
+        tot, des = outage_loss(outs, factors, m)
+        exp = mf["export_gwh"].get(_add_months(m, -12), 0.0)
+        add, add_lo = max(0.0, tot - exp), max(0.0, des - exp)
+        out.append({**r, "model": f"{r['model']}+outage", "yhat": r["yhat"] + add, "p10": r["p10"] + add_lo,
+                    "p90": r["p90"] + add})
+        print(f"    {m:%b %Y} {tot:9,.0f} {des:15,.0f} {exp:13,.0f}   {r['yhat']:5,.0f} -> {r['yhat'] + add:,.0f}",
+              flush=True)
+    return out

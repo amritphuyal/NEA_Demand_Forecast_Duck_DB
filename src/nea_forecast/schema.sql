@@ -177,3 +177,13 @@ CREATE TABLE IF NOT EXISTS ml.forecasts (
     run_id VARCHAR, model VARCHAR, target VARCHAR, horizon INTEGER, origin DATE, date DATE,
     yhat DOUBLE, p10 DOUBLE, p90 DOUBLE, created_at TIMESTAMP
 );
+
+-- GloFAS river-flow forecast (Open-Meteo flood API, ensemble mean + spread), one issue per run day
+CREATE TABLE IF NOT EXISTS silver.river_discharge_forecast (
+    issued DATE, date DATE, point VARCHAR, discharge_m3s DOUBLE, p25 DOUBLE, p75 DOUBLE
+);
+-- Capacity out of service (outages.json): floods, transmission loss, reservoir shortfall
+CREATE TABLE IF NOT EXISTS silver.plant_outage (
+    event VARCHAR, plant VARCHAR, river VARCHAR, capacity_mw DOUBLE, kind VARCHAR, status VARCHAR,
+    outage_start DATE, expected_return DATE, winter_energy_gwh DOUBLE, note VARCHAR, source_url VARCHAR
+);

@@ -1,0 +1,29 @@
+{
+  "_doc": "Generation capacity out of service. Read by `nea ingest outages` -> silver.plant_outage; used by `nea forecast` to raise winter import (docs/models/outages.md). expected_return null = out for the whole forecast. Edit as NEA publishes restorations.",
+  "dry_season_factor": {"hydro_ror": 0.35, "solar": 0.18, "_source": "run-of-river < 40% of capacity in the dry season (Kathmandu Post 2023-05-04); solar ~18% CUF typical for Nepal"},
+  "events": [
+    {"event": "Bhotekoshi-Trishuli flood 2026-08-26", "outage_start": "2026-08-26",
+     "sources": ["https://www.spotlightnepal.com/2026/09/07/bhotekoshi-flood-blow-hydropower-sector/",
+                 "https://kathmandupost.com/national/2026/08/30/flood-damage-to-nepal-s-hydropower-sector-could-run-into-billions",
+                 "https://news.mongabay.com/2026/09/nepals-flood-disaster-puts-its-hydropower-first-strategy-exports-to-the-test/"],
+     "plants": [
+       {"plant": "Rasuwagadhi", "river": "Bhotekoshi", "capacity_mw": 111, "kind": "hydro_ror", "status": "destroyed", "expected_return": null},
+       {"plant": "Upper Trishuli 3A", "river": "Trishuli", "capacity_mw": 60, "kind": "hydro_ror", "status": "destroyed", "expected_return": null},
+       {"plant": "Trishuli", "river": "Trishuli", "capacity_mw": 24, "kind": "hydro_ror", "status": "destroyed", "expected_return": null},
+       {"plant": "Chilime", "river": "Chilime", "capacity_mw": 22, "kind": "hydro_ror", "status": "destroyed", "expected_return": null},
+       {"plant": "Langtang Khola", "river": "Langtang", "capacity_mw": 20, "kind": "hydro_ror", "status": "destroyed", "expected_return": null},
+       {"plant": "Devighat", "river": "Trishuli", "capacity_mw": 14.1, "kind": "hydro_ror", "status": "destroyed", "expected_return": null},
+       {"plant": "Mailung Khola", "river": "Mailung", "capacity_mw": 5, "kind": "hydro_ror", "status": "destroyed", "expected_return": null},
+       {"plant": "Solar plant (Nuwakot, unnamed)", "river": "Trishuli", "capacity_mw": 25, "kind": "solar", "status": "destroyed", "expected_return": null},
+       {"plant": "Transmission-isolated plants, Rasuwa/Nuwakot (unnamed, incl. Sanjen)", "river": "Trishuli basin", "capacity_mw": 230, "kind": "hydro_ror", "status": "offline_transmission", "expected_return": null,
+        "note": "Ghising: 230-235 MW offline due to destroyed lines/substations; return date unknown -> assumed out all winter (upper case); P10 assumes it is back"}
+     ]},
+    {"event": "Kulekhani reservoir drawn down after flood", "outage_start": "2026-08-26",
+     "sources": ["https://kathmandupost.com/national/2026/09/12/bhotekoshi-floods-push-kulekhani-into-continuous-power-generation"],
+     "plants": [
+       {"plant": "Kulekhani I-III storage shortfall", "river": "Kulekhani", "capacity_mw": 0, "kind": "storage", "status": "reduced_storage", "expected_return": null,
+        "winter_energy_gwh": 22,
+        "note": "level 1,522.46 m on 2026-09-12 vs 1,527 m safe max, falling 2-10 cm/day; ~3.1 GWh per metre (144.7 GWh/yr over ~46 m usable depth) x ~7 m short = ~22 GWh less winter peak energy; spread over Jan-Apr"}
+     ]}
+  ]
+}

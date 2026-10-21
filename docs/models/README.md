@@ -10,6 +10,8 @@ One page that explains and defends **what** we forecast, **with which models**, 
 | Winter seasonal outlook | monthly demand GWh, monthly import GWh | Nov–Apr (1–6 months) | seasonal naive × growth, log-linear, ETS, combination | [monthly-outlook](monthly-outlook.md) |
 | India import need | `net_exchange_india_mwh` (daily), import GWh (monthly) | as above | direct model vs demand − domestic generation | [import-need](import-need.md) |
 | Plan with risk, not one number | P10 / P50 / P90 for every target | all | split conformal intervals | [intervals](intervals.md) |
+| River flow ahead | GloFAS forecast replaces climatology where available | live, ~7 months | q_actual mode (daily generation), forecast anomaly (monthly) | [river-forecast](river-forecast.md) |
+| Shocks history never saw (Aug 2026 flood, ~480 MW) | lost generation added to monthly import | live winter | sourced outage register | [outages](outages.md) |
 
 ## 2. Why this ladder and not deep learning
 
@@ -33,7 +35,7 @@ One page that explains and defends **what** we forecast, **with which models**, 
 
 - **Two winters of daily data.** The daily backtest covers only winter 2024/25 (Nov → 11 Jan). Winter error figures carry wide uncertainty; the intervals reflect that.
 - **Live daily data comes from the NEA widget** (from 2026-10-25). Its definitions match NDOR exactly (verified 2026-10-26), but its history is short.
-- **Structural change.** Demand grows 12%/yr, and new hydro shifts import sharply (37% → 6% share). Lag features carry the level forward; we check coefficient stability across 2023 vs 2024 fits.
+- **Structural change.** Demand grows 12%/yr, and new hydro shifts import sharply (37% → 6% share). The Aug 2026 flood reversed part of that (~480 MW lost); the models can't learn it from history, so it is added explicitly ([outages](outages.md)). Lag features carry the level forward; we check coefficient stability across 2023 vs 2024 fits.
 - **GloFAS is modelled discharge,** not gauge data. It is used as an index; DHM gauge data, when it arrives, will validate it.
 - **NEA's official method is unpublished.** We could not compare against an NEA daily or monthly benchmark.
 

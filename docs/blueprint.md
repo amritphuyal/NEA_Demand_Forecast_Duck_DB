@@ -17,6 +17,11 @@ All ingested data and results live in DuckLake and are queryable with DuckDB. Re
 - Longer history = NEA annual + monthly/yearly operational reports (monthly/annual figures) and Wayback copies of old LDC PDFs.
 - NEA sites sit behind F5 bot protection; DHM/BIPAD refuse non-Nepal IPs → pipeline runs on a laptop in Nepal.
 - Long river discharge history (1984→) from Open-Meteo GloFAS; weather (1940→) from Open-Meteo ERA5.
+- **26 Aug 2026 Bhotekoshi/Trishuli flood:**
+  - ~250 MW destroyed and ~230 MW cut off (≈10% of capacity).
+  - Kulekhani is running continuously, below its safe level.
+  - India is supplying up to 654 MW until 31 Dec.
+  - Handled as a sourced outage register (`outages.json`, [models/outages.md](models/outages.md)).
 
 ## Architecture
 
@@ -33,9 +38,10 @@ All ingested data and results live in DuckLake and are queryable with DuckDB. Re
  lake.silver.*      nea_daily, nea_document, weather_daily, river_discharge_daily,
                     river_level_obs, dim_calendar                     (typed, deduped)
                     │  SQL views
- lake.gold.*        daily_features, monthly_summary                   (model-ready)
-                    │  Phase 3
- lake.ml.*          forecasts, backtest_metrics
+ lake.gold.*        daily_features, monthly_summary, annual_history,  (model-ready)
+                    report_monthly_balance
+                    │  nea eda → docs/eda/     nea model / nea forecast (Phase 3)
+ lake.ml.*          backtest_metrics, forecasts (P10/P90)   + outages.json, GloFAS forecast
                     │  Phase 4: COPY ... TO parquet
  site/data/*.parquet ──► Cloudflare Pages (DuckDB-WASM / charts)
 ```
@@ -70,3 +76,5 @@ Seasonal outlook: monthly series from annual reports + ETS/SARIMA. Import need =
 - NDOR series stops Jan 2025 → daily model trains on 2 winters; post-2025 data needs NEA (user is asking) or Grid-India proxy.
 - Government sites can change layout, block bots, or go down → raw files kept, parsers fail loudly per key (logged, not fatal).
 - GloFAS is modelled discharge, not gauge truth → validate against DHM data once the email request is answered.
+- **Climate shocks:** floods and GLOFs destroy plants that history never lost (Aug 2026: ~480 MW). The models can't learn this, so `outages.json` must be kept current, and import forecasts carry that uncertainty.
+- **Live daily data depends on the NEA homepage widget** (short history; layout may change).

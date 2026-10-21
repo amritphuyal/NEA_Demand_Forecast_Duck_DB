@@ -6,7 +6,8 @@
 
 - **Demand:** NEA annual-report monthly balance, national demand GWh, 2021-07 → 2026-05 (53 months; BS months mapped to the AD month they start in).
 - **Import:** customs monthly 2017 → (÷1.09: customs reads 9% above NEA); also the NEA report import.
-- **Driver:** monthly mean `discharge_index` (anomaly vs climatology).
+- **Driver:** monthly mean `discharge_index` (anomaly vs climatology). In the backtest the future anomaly is the last observed month (persistence). In live runs it is the GloFAS seasonal forecast ([river-forecast](river-forecast.md)).
+- **Flood losses:** the live import forecast is also shown as `combo+outage`, adding capacity lost in the Aug 2026 flood ([outages](outages.md)).
 
 **What's known at the origin (31 October).**
 - NEA annual-report figures cover the fiscal year to Ashadh, which lands in the June AD month.
@@ -35,7 +36,7 @@ The backtest uses only data published by then, so the forecasts run 5–10 month
 
 - 53 months is about 4.4 seasonal cycles: enough for ETS seasonality, but the intervals are wide.
 - Two hold-out winters means "best model" is weakly established. `combo` is the default unless one model wins both winters.
-- New large plants (commissioning dates) aren't modelled, so import forecasts can be too high in the winter a big plant comes online.
+- New large plants (commissioning dates) aren't modelled, so import forecasts can be too high in the winter a big plant comes online. Lost plants are handled by the outage register ([outages](outages.md)).
 
 ## Results
 

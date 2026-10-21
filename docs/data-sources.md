@@ -42,6 +42,20 @@ Not extractable: Kulekhani reservoir water level (chart image only). Monthly ope
 
 `https://flood-api.open-meteo.com/v1/flood?latitude=..&longitude=..&daily=river_discharge&start_date=..&end_date=..`. Daily m³/s, 1984→, ~5 km grid. Points: 3 basin outlets (Karnali, Koshi, Narayani → `discharge_index`) + 5 plants (Kali Gandaki, Trishuli, Marsyangdi, Upper Tamakoshi, Sunkoshi), each snapped to its main-channel cell (5×5 search ±0.1°, mean flow 2015–24 vs known river size). Kulekhani dropped: catchment too small for the grid. Modelled flow, not gauge truth → validate with DHM data.
 
+## GloFAS river-flow forecast — `verified` (`nea ingest discharge_forecast`)
+
+- **Request:** the same flood API with `daily=river_discharge_mean,river_discharge_p25,river_discharge_p75&forecast_days=210`, all 8 points in one request.
+- **Coverage:** GloFAS v4 seamless (30-day daily forecast, then the 7-month seasonal forecast, updated monthly), 50-member ensemble. The 2026-10-26 issue covers 2026-10-26 → 2027-05-04.
+- **Storage:** stored per issue date in `silver.river_discharge_forecast`. See `docs/models/river-forecast.md`.
+
+## Outage register — `verified` (hand-kept, `nea ingest outages`)
+
+`outages.json` lists capacity out of service, with sources (Spotlight Nepal, Kathmandu Post, Mongabay, Al Jazeera):
+- **Aug 2026 flood:** ~256 MW destroyed, 25 MW of solar, ~230 MW cut off by destroyed transmission.
+- **Kulekhani:** reservoir shortfall of ≈ 22 GWh.
+
+Stored in `silver.plant_outage` and used to adjust the live import forecast. See `docs/models/outages.md`.
+
 ## DHM river-watch — `unavailable` (site down since 2026-10-25, reportedly PHP vulnerability)
 
 https://www.dhm.gov.np/hydrology/river-watch embeds `var coordinates = [...]` JSON (~309 gauges: id, name, basin, district, lat/lon, `waterLevel{value, datetime}`, warning/danger level). Latest reading only → history accumulates from our snapshots. Geo-blocked outside Nepal. Historical data only via request form / email.
@@ -57,9 +71,10 @@ Draft: `docs/outreach/dhm-data-request.md`. Top-5 sites: Kulekhani reservoir, Ta
 | Kathmandu + Terai temperature | winter heating / summer cooling load | Open-Meteo ERA5 | verified |
 | Holidays & festivals (Dashain, Tihar) | demand dips | `holidays` package (`NP`) | verified |
 | River discharge at hydro sites | domestic generation capacity | GloFAS | verified |
-| GloFAS seasonal discharge forecast (7 months) | future winter supply driver | Open-Meteo flood API | planned |
+| GloFAS seasonal discharge forecast (7 months) | future winter supply driver | Open-Meteo flood API → `silver.river_discharge_forecast` | verified |
+| Plant outages (floods, lost lines, reservoir shortfall) | capacity history never lost | news + NEA statements → `outages.json` → `silver.plant_outage` | verified (hand-kept) |
 | Kulekhani reservoir level | storage for winter peaks | news only, no feed; ask NEA/DHM | requested |
 | India exchange after Jan 2025 | import target when NDOR missing | **India customs TradeStat** (monthly 2018 →, `silver.india_trade_monthly`) + **CERC Table 46** IEX buy/sell + price (2023 →, `silver.iex_cross_border_monthly`) — verified. Grid-India daily PSP | unavailable (2026-10-25: `report.grid-india.in` gone from DNS, `grid-india.in` resets connections; user checking in browser) |
 | GDP, population | demand trend | World Bank API `NY.GDP.MKTP.KD`, `SP.POP.TOTL` → `silver.macro_yearly`, joined into `gold.annual_history` | verified (1960–2025) |
-| Peak demand snapshot | sanity check | nea.org.np homepage "Energy Details" widget | planned |
+| Daily figures after Jan 2025 | live daily model input | nea.org.np homepage "Energy Details" widget → `silver.nea_widget` | verified (from 2026-10-25) |
 | New connections / industrial load | demand growth | NEA annual report | Phase 2 |

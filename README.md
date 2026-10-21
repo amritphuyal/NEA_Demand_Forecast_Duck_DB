@@ -14,6 +14,7 @@ uv run nea status                      # rows + date range per table
 uv run nea eda                         # analysis numbers + charts -> docs/eda/
 uv run nea model                       # backtest + model selection -> ml.backtest_metrics, docs/model/
 uv run nea forecast                    # live forecasts with P10/P90 -> ml.forecasts
+uv run nea sql "FROM ml.forecasts LIMIT 5"   # query any lake table (see docs/lake.md)
 uv run pytest                          # offline tests
 ```
 
@@ -30,11 +31,13 @@ FROM lake.gold.daily_features LIMIT 5;
 | Path | What |
 |---|---|
 | `sources.json` | Source registry: URLs, points, status (read by the code) |
+| `outages.json` | Capacity out of service (Aug 2026 flood, Kulekhani), with sources; edit as NEA restores plants |
 | `src/nea_forecast/` | Ingesters, lakehouse, CLI |
 | `data/raw/` | Immutable downloads (bronze, gitignored) |
 | `data/lake/` | DuckLake catalog + Parquet files (gitignored) |
 | `docs/blueprint.md` | Mission, architecture, roadmap, model strategy |
-| `docs/flow.md` | Data flow + incremental rules + cron |
+| `docs/flow.md` | End-to-end flow, every command and source, incremental rules, cron |
+| `docs/lake.md` | Every lake table, how to query it, example queries |
 | `docs/data-sources.md` | Every source researched, status, extra data points |
 | `docs/eda-findings.md` | EDA results + Phase 3 model inputs |
 | `docs/models/` | Forecasting approach + one doc per model + literature review (defence of the method) |

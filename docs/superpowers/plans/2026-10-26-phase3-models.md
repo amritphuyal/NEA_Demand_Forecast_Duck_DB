@@ -175,3 +175,14 @@ docs/model/*.png, docs/model-results.md, docs/models/*.md (Results sections)
 - [ ] **Step 1: Failing test:** 3 widget days → monthly rows written, 0 daily rows, log contains `daily skipped`.
 - [ ] **Step 2–4:** FAIL → implement → PASS. Run `uv run nea forecast`.
 - [ ] **Step 5: Commit:** `feat(model): live forecast and results doc`.
+
+---
+
+## Addendum (2026-10-26, after Task 7): river-flow forecast + flood losses
+
+- `nea ingest discharge_forecast` → `silver.river_discharge_forecast` (GloFAS ensemble mean/p25/p75, ~7 months).
+- New backtest weather mode `q_actual` (river flow known, temperature from climatology): the upper bound of a river-flow forecast's value.
+- Live: the daily generation model runs in `q_actual` mode fed by the forecast; monthly `linear_m` uses the forecast anomaly.
+- `outages.json` → `nea ingest outages` → `silver.plant_outage`. `nea forecast` adds `combo+outage` import: lost generation × dry-season factor, net of the month's usual export.
+- Tests: `test_outage_loss_window_and_storage`. Docs: `docs/models/outages.md`, `docs/models/river-forecast.md`.
+- `nea sql` added; `docs/lake.md` lists every table with example queries.

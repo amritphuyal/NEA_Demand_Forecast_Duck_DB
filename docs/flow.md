@@ -45,8 +45,8 @@ Every command writes a time-stamped log to `data/logs/<YYYYmmdd-HHMMSS>-<command
 | `docs` | NEA monthly/yearly/annual report PDFs → Markdown | listing minus logged keys | `nea_docs/{category}/{slug}.pdf/.md` | `silver.nea_document` |
 | `reports` | month-wise tables from that Markdown | re-parse every run (fast) | — | `silver.report_monthly`, `report_annual`, `report_energy_history` |
 | `ocr` | image-only balance tables (RapidOCR) | PDFs already done are skipped | `nea_docs/ocr/*.json` | `silver.report_monthly` |
-| `weather` | ERA5 temperature + rain, 6 points | from last date − 10 d (ERA5 lags ~5 d) | `open_meteo/weather/*.json` | `silver.weather_daily` |
-| `discharge` | GloFAS river flow, 3 basins + 5 plants | same as weather | `open_meteo/discharge/*.json` | `silver.river_discharge_daily` |
+| `weather` | ERA5 temperature + rain, 6 points | all points in one request, from last stored day − 3 d (recent days are provisional; still-unpublished days come next run) | `open_meteo/weather/*.json` | `silver.weather_daily` |
+| `discharge` | GloFAS river flow, 3 basins + 5 plants | same as weather (one request, last day − 3 d) | `open_meteo/discharge/*.json` | `silver.river_discharge_daily` |
 | `discharge_forecast` | GloFAS river-flow **forecast**, ~7 months, ensemble mean/p25/p75 | one issue per run day | `open_meteo/discharge_forecast/{date}.json` | `silver.river_discharge_forecast` |
 | `outages` | hand-kept register of capacity out of service (`outages.json`: Aug 2026 flood, Kulekhani shortfall) | full refresh from the JSON | — | `silver.plant_outage` |
 | `dhm` | DHM river-watch gauges (site down since 2026-10) | append snapshot | `dhm/*.json` | `silver.river_level_obs` |

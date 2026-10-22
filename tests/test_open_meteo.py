@@ -25,14 +25,16 @@ def test_start_date_overlap(tmp_path):
     assert om.start_date(con, "silver.weather_daily", "ktm") == date(2010, 1, 1)
     upsert(con, "silver.weather_daily", [{"date": date(2025, 1, 20), "point": "ktm", "tmax_c": 1.0,
                                           "tmin_c": 0.0, "precip_mm": 0.0}], ("date", "point"))
-    assert om.start_date(con, "silver.weather_daily", "ktm") == date(2025, 1, 10)
+    assert om.start_date(con, "silver.weather_daily", "ktm") == date(2025, 1, 17)
 
 
 def test_ingest_weather(tmp_path, monkeypatch):
-    body = (FIX / "om_archive.json").read_bytes()
-    monkeypatch.setattr(om, "fetch", lambda url: body)
+    one = json.loads((FIX / "om_archive.json").read_text())
+    calls = []
+    monkeypatch.setattr(om, "fetch", lambda url: calls.append(url) or json.dumps([one] * 6).encode())
     con = connect(tmp_path)
     n = om.ingest_weather(con, tmp_path)
+    assert len(calls) == 1 and "latitude=27.7%2C" in calls[0]  # all points in one request
     assert n == 2 * len(om.load_sources()["open_meteo_weather"]["points"])
     assert con.execute("select count(distinct point) from silver.weather_daily").fetchone()[0] == 6
     assert any((tmp_path / "raw/open_meteo/weather").iterdir())

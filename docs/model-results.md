@@ -13,12 +13,8 @@ Run on 2026-10-26: `uv run nea model` (backtest, ~75 s) and `uv run nea forecast
 | Monthly winter demand (Nov–Apr) | combo (seasonal naive × growth, log-linear, ETS) | 3.0–6.5% per month | [monthly-outlook](models/monthly-outlook.md) |
 | Monthly winter import | combo | MAE 5–93 GWh/month (import runs 0–340) | [monthly-outlook](models/monthly-outlook.md) |
 | Ranges | P10/P90 from recent out-of-sample errors | coverage 80–97% (target 80%); 58–67% for 30-day import | [intervals](models/intervals.md) |
-| Flood adjustment (live import) | outage register × dry-season factor | not backtestable (no past event) | [outages](models/outages.md) |
-| River-flow forecast | GloFAS ensemble mean (live) | best case: 30-day generation 8.8% → 8.1% | [river-forecast](models/river-forecast.md) |
 
 Selection rule: climb from the best baseline only when the winter error is > 5% lower and the Diebold–Mariano p < 0.10, then take the simplest model within 5% of the winner. Full list: [model/selection.json](model/selection.json).
-
-**What runs instead of LightGBM:** ridge (demand, peak, 30-day generation), the naive baseline "same as today" (generation and import at short horizons, where nothing beat it significantly), demand − generation for import need, and the 3-model combination for the monthly outlook.
 
 **LightGBM** was tested on every target and horizon. It is significantly worse than ridge on demand and peak (2–3× the error at 14–30 days). It "won" only as the direct import-need model at 30 days, and import need ships via the difference method, so no live forecast uses it. It stays in the backtest as the challenger, so each new winter re-tests it.
 
@@ -38,18 +34,16 @@ Two hold-out winters, origin 31 October, using only data published by then (NEA 
 
 ![live outlook](model/forecast_live-20261026.png)
 
-| Month | Demand GWh (P10–P90) | Import, models only | **Import with flood losses** (P10–P90) | River flow vs normal |
-|---|---|---|---|---|
-| Nov 2026 | 1,138 (1,055–1,189) | 0 | **0** (0–86) | +24% |
-| Dec 2026 | 1,281 (1,198–1,332) | 46 | **53** (0–140) | −6% |
-| Jan 2027 | 1,235 (1,152–1,286) | 196 | **332** (211–418) | −13% |
-| Feb 2027 | 1,198 (1,115–1,249) | 228 | **351** (236–437) | −26% |
-| Mar 2027 | 1,293 (1,210–1,344) | 194 | **323** (203–410) | −24% |
-| Apr 2027 | 1,441 (1,358–1,492) | 193 | **301** (183–388) | −30% |
+| Month | Demand GWh (P10–P90) | Import GWh (P10–P90) |
+|---|---|---|
+| Nov 2026 | 1,141 (1,058–1,192) | 0 (0–86) |
+| Dec 2026 | 1,282 (1,199–1,333) | 47 (0–133) |
+| Jan 2027 | 1,236 (1,153–1,287) | 196 (141–282) |
+| Feb 2027 | 1,198 (1,115–1,249) | 226 (171–313) |
+| Mar 2027 | 1,293 (1,210–1,344) | 192 (137–279) |
+| Apr 2027 | 1,441 (1,358–1,492) | 190 (135–277) |
 
-- **Use the flood-adjusted column.** The Aug 2026 flood took out ~480 MW ([outages](models/outages.md)). From January every lost GWh becomes import: +60%, to the level of winter 2023/24. GloFAS also forecasts a dry late winter.
-- Winter demand total: 7,585 GWh. The GDP cross-check (last winter × (1 + 2.6 × 3.4% GDP growth)) gives 7,519 GWh, a gap of +0.9%.
-- India approved up to 654 MW for 18 h/day until 31 Dec (~355 GWh/month), with a review in December for January onward. The adjusted import fits under that ceiling.
+- Winter demand total: 7,591 GWh. The GDP cross-check (last winter × (1 + 2.6 × 3.4% GDP growth)) gives 7,519 GWh, a gap of +1.0%.
 - Import ranges come from only 12 hold-out residuals, so treat them as indicative.
 
 **Daily live forecasts** start once the NEA widget has 8 consecutive days. Run `nea ingest widget` daily. A dry run on 2025-01-05 data produced all 16 daily rows in about 1 s.
@@ -58,7 +52,6 @@ Two hold-out winters, origin 31 October, using only data published by then (NEA 
 
 - **One test winter for daily models** (Nov 2024 – Jan 2025). The 30-day demand error moves 4.9–7.6% under ±3 °C threshold changes, so quote it as 5–8%.
 - **Ranges** are too wide for demand (cautious) and too narrow for 30-day import. The fix (same-season windows) waits for a second winter of out-of-sample errors.
-- **Import depends on river flow and weather:** knowing all weather would cut the 30-day generation error from 8.8% to 5.4%, but a perfect river-flow forecast alone only reaches 8.1%. The GloFAS forecast is used live, mainly for the seasonal dry/wet signal.
-- **Flood losses are estimates** from news sources and a rule-of-thumb output factor, ±30%. Update `outages.json` as NEA restores plants.
-- **Not modelled:** India-side supply limits and prices, and new plant commissioning dates. Flood losses are added on top of the models, not learned by them.
+- **Import depends on river flow:** with actual discharge, the 30-day generation error drops from 8.8% to 5.4%. Adding the GloFAS river-flow **forecast** is the biggest available improvement.
+- **Not modelled:** India-side supply limits and prices, and new plant commissioning dates.
 - **Live daily data depends on the NEA homepage widget,** which has only a short history and the risk that its layout changes.

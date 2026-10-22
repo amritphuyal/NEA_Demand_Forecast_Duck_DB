@@ -9,7 +9,8 @@ from nea_forecast.fetch import fetch
 from nea_forecast.lake import upsert
 
 START = date(2010, 1, 1)
-OVERLAP = timedelta(days=10)  # ERA5 lags ~5 days; refetch recent window so late values fill in
+OVERLAP = timedelta(days=3)  # last days are provisional (ERA5T, GloFAS updates): refetch them; ERA5 itself
+# lags ~5 days, and those still-empty days are skipped by parse_daily, so they are fetched next run anyway
 WEATHER = {"temperature_2m_max": "tmax_c", "temperature_2m_min": "tmin_c", "precipitation_sum": "precip_mm"}
 FLOOD = {"river_discharge": "discharge_m3s"}
 
@@ -31,16 +32,20 @@ def start_date(con, table: str, point: str) -> date:
 
 
 def _ingest(con, root: Path, source_id: str, kind: str, base: str, mapping: dict, table: str, extra: dict) -> int:
+    """All points in one request (Open-Meteo takes comma-separated coordinates), from the earliest
+    per-point start: normally last stored day - OVERLAP, so only the recent window is fetched."""
     raw = Path(root) / "raw" / "open_meteo" / kind
     raw.mkdir(parents=True, exist_ok=True)
-    n, end = 0, date.today()
-    for p in load_sources()[source_id]["points"]:
-        start = start_date(con, table, p["id"])
-        q = {"latitude": p["lat"], "longitude": p["lon"], "start_date": start, "end_date": end,
-             "daily": ",".join(mapping), **extra}
-        body = fetch(f"{base}?{urlencode(q)}")
-        (raw / f"{p['id']}_{start}_{end}.json").write_bytes(body)
-        k = upsert(con, table, parse_daily(json.loads(body), p["id"], mapping), ("date", "point"))
+    pts, end = load_sources()[source_id]["points"], date.today()
+    start = min(start_date(con, table, p["id"]) for p in pts)
+    q = {"latitude": ",".join(str(p["lat"]) for p in pts), "longitude": ",".join(str(p["lon"]) for p in pts),
+         "start_date": start, "end_date": end, "daily": ",".join(mapping), **extra}
+    body = fetch(f"{base}?{urlencode(q)}")
+    (raw / f"{start}_{end}.json").write_bytes(body)
+    js = json.loads(body)
+    n = 0
+    for p, d in zip(pts, js if isinstance(js, list) else [js]):
+        k = upsert(con, table, parse_daily(d, p["id"], mapping), ("date", "point"))
         print(f"  {kind} {p['id']}: {start} .. {end}: {k} rows", flush=True)
         n += k
     return n

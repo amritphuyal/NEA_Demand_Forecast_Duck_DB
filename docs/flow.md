@@ -7,7 +7,7 @@
  nea ingest all  ──►  data/raw/<source>/  (files)  ──► nea eda      → docs/eda/    docs/*.md + charts
   NEA reports         bronze.ingest_log (what ran)     nea model    → ml.backtest_ nea sql "…"
   NEA widget          silver.*  (clean tables)                        metrics       ml.forecasts
-  weather, rivers     gold.*    (joined views)         nea forecast → ml.forecasts  (Phase 4: website)
+  weather, rivers     gold.*    (joined views)         nea forecast → ml.forecasts  website (site/)
   India trade, GDP    ml.*      (model output)                        docs/model/
   outages.json
 ```
@@ -17,6 +17,8 @@
 2. `nea forecast` writes today's forecasts.
 
 **After each winter, or when models change:** `nea model` re-tests the models and re-selects them.
+
+**To publish:** `nea export` (lake → `site/src/data/*.parquet`), then `cd site && npm run deploy` ([site.md](site.md)).
 
 Every command writes a time-stamped log to `data/logs/<YYYYmmdd-HHMMSS>-<command>.log`. Each step logs `▶ start` and then `✔ done` or `✖ FAILED`; a failing step never stops the others.
 
@@ -30,6 +32,7 @@ Every command writes a time-stamped log to `data/logs/<YYYYmmdd-HHMMSS>-<command
 | `nea model` | rolling-origin backtest of all models, Diebold–Mariano, selection, intervals | `ml.backtest_metrics`, `ml.forecasts` (`bt-*`), `docs/model/*.png`, `docs/model/selection.json` |
 | `nea forecast` | live forecasts: winter monthly outlook (+ flood adjustment), daily 1–30 d once the widget has 8 days | `ml.forecasts` (`live-YYYYmmdd`), `docs/model/forecast_live-*.png` |
 | `nea sql "<query>"` | read-only SQL on the lake | screen |
+| `nea export` | Parquet snapshot of the lake for the website (+ points, selection, manifest) | `site/src/data/` |
 | `nea search <regex>` | search the downloaded NEA report Markdown | screen |
 | `nea maintain` | merge small Parquet files, expire snapshots > 30 days | — |
 

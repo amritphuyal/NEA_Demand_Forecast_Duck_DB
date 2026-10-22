@@ -43,7 +43,7 @@ All ingested data and results live in DuckLake and are queryable with DuckDB. Re
                     │  nea eda → docs/eda/     nea model / nea forecast (Phase 3)
  lake.ml.*          backtest_metrics, forecasts (P10/P90)   + outages.json, GloFAS forecast
                     │  Phase 4: COPY ... TO parquet
- site/data/*.parquet ──► Cloudflare Pages (DuckDB-WASM / charts)
+ site/src/data/*.parquet ──► Observable Framework ──► Cloudflare Pages (DuckDB-WASM SQL, Plot charts, Leaflet map)
 ```
 
 Lakehouse = DuckLake: catalog `data/lake/nea.sqlite` (SQLite: readers work during an ingest), Parquet under `data/lake/data/`. Snapshots give time travel (`AT (VERSION => n)`).
@@ -55,7 +55,7 @@ Lakehouse = DuckLake: catalog `data/lake/nea.sqlite` (SQLite: readers work durin
 | 1 | Ingestion + DuckLake (NDOR, NEA reports → Markdown + monthly/annual tables + OCR, weather, discharge, NEA widget, India customs + CERC, World Bank, calendar, gold views) | `docs/superpowers/plans/2026-10-25-phase1-ingestion-lakehouse.md` | done 2026-10-25 (DHM gauges pending: site down) |
 | 2 | EDA: seasonality, weather/holiday/discharge effects, import-source reconciliation, gaps → model inputs; DHM manual loader when data arrives | `docs/superpowers/plans/2026-10-25-phase2-eda.md` → `docs/eda-findings.md` | done 2026-10-25 |
 | 3 | Models + backtests → `ml.*` (inputs: `docs/eda-findings.md` § Phase 3 inputs) | `docs/superpowers/plans/2026-10-26-phase3-models.md` → `docs/model-results.md` | done 2026-10-26 |
-| 4 | `nea export` → Parquet → Cloudflare Pages site | later | next |
+| 4 | `nea export` → Parquet → Observable Framework site on Cloudflare Pages (`docs/site.md`) | `docs/superpowers/plans/2026-10-26-phase4-site.md` | built 2026-10-26; deploy after Cloudflare login |
 
 ## Model strategy
 

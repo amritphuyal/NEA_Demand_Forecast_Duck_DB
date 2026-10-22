@@ -15,6 +15,8 @@ uv run nea eda                         # analysis numbers + charts -> docs/eda/
 uv run nea model                       # backtest + model selection -> ml.backtest_metrics, docs/model/
 uv run nea forecast                    # live forecasts with P10/P90 -> ml.forecasts
 uv run nea sql "FROM ml.forecasts LIMIT 5"   # query any lake table (see docs/lake.md)
+uv run nea export                      # lake -> Parquet snapshot for the website
+cd site && npm install && npm run dev  # website preview (docs/site.md); npm run deploy -> Cloudflare Pages
 uv run pytest                          # offline tests
 ```
 
@@ -38,6 +40,7 @@ FROM lake.gold.daily_features LIMIT 5;
 | `docs/blueprint.md` | Mission, architecture, roadmap, model strategy |
 | `docs/flow.md` | End-to-end flow, every command and source, incremental rules, cron |
 | `docs/lake.md` | Every lake table, how to query it, example queries |
+| `site/` | Website (Observable Framework + DuckDB-WASM + Leaflet), deployed to Cloudflare Pages: `docs/site.md` |
 | `docs/data-sources.md` | Every source researched, status, extra data points |
 | `docs/eda-findings.md` | EDA results + Phase 3 model inputs |
 | `docs/models/` | Forecasting approach + one doc per model + literature review (defence of the method) |

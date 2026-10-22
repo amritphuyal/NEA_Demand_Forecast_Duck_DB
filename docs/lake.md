@@ -24,7 +24,9 @@ USE lake;
 FROM gold.daily_features LIMIT 5;
 ```
 
-**3. Python:**
+**3. On the website:** the SQL explorer page runs the same DuckDB SQL in the browser on the exported snapshot (`nea export`). Table names there have no schema prefix (`forecasts`, `daily_features`, …).
+
+**4. Python:**
 
 ```python
 from nea_forecast.lake import connect

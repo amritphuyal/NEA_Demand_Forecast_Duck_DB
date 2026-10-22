@@ -11,3 +11,4 @@ wheels/
 
 # Data (raw downloads + lakehouse)
 data/
+!site/src/data/

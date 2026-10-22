@@ -1,0 +1,15 @@
+{
+  "name": "nea-forecast-site",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "data": "cd .. && uv run nea export",
+    "dev": "observable preview",
+    "build": "observable build",
+    "deploy": "observable build && npx wrangler@4.152.0 pages deploy dist --project-name nea-winter-outlook"
+  },
+  "devDependencies": {
+    "@observablehq/framework": "1.13.4"
+  },
+  "engines": {"node": ">=20"}
+}

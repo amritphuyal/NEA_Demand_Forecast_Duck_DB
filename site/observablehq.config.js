@@ -2,6 +2,7 @@
 export default {
   title: "Nepal Electricity: Winter Outlook",
   pages: [
+    {name: "How it works", path: "/architecture"},
     {name: "Map", path: "/map"},
     {name: "Data", path: "/data"},
     {name: "Analysis", path: "/analysis"},

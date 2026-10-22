@@ -25,26 +25,7 @@ All ingested data and results live in DuckLake and are queryable with DuckDB. Re
 
 ## Architecture
 
-```
- sources (sources.json)
-   NEA transd NDOR ─┐   Wayback NDOR ─┐   NEA reports ─┐   Open-Meteo ─┐   DHM river-watch ─┐
-                    ▼                 ▼                ▼               ▼                    ▼
- fetch.py   httpx (polite, retries) ──► Playwright fallback on F5 challenge
-                    │
- data/raw/<source>/  immutable PDF / JSON / HTML / Markdown         (bronze files)
-                    │
- lake.bronze.ingest_log   (source, key, status)  → incremental skip  (bronze log)
-                    │  parse (pdfplumber / json / regex)
- lake.silver.*      nea_daily, nea_document, weather_daily, river_discharge_daily,
-                    river_level_obs, dim_calendar                     (typed, deduped)
-                    │  SQL views
- lake.gold.*        daily_features, monthly_summary, annual_history,  (model-ready)
-                    report_monthly_balance
-                    │  nea eda → docs/eda/     nea model / nea forecast (Phase 3)
- lake.ml.*          backtest_metrics, forecasts (P10/P90)   + outages.json, GloFAS forecast
-                    │  Phase 4: COPY ... TO parquet
- site/src/data/*.parquet ──► Observable Framework ──► Cloudflare Pages (DuckDB-WASM SQL, Plot charts, Leaflet map)
-```
+Diagrams (system, schedule, ingest step, forecast generation): [architecture.md](architecture.md).
 
 Lakehouse = DuckLake: catalog `data/lake/nea.sqlite` (SQLite: readers work during an ingest), Parquet under `data/lake/data/`. Snapshots give time travel (`AT (VERSION => n)`).
 

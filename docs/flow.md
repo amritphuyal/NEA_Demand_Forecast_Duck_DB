@@ -18,7 +18,7 @@
 
 **After each winter, or when models change:** `nea model` re-tests the models and re-selects them.
 
-**To publish:** `nea export` (lake → `site/src/data/*.parquet`), then `cd site && npm run deploy` ([site.md](site.md)).
+**To publish:** `nea export` (lake → `site/src/data/*.parquet`), then `cd site && npm run deploy` ([deploy.md](deploy.md)). Diagrams: [architecture.md](architecture.md).
 
 Every command writes a time-stamped log to `data/logs/<YYYYmmdd-HHMMSS>-<command>.log`. Each step logs `▶ start` and then `✔ done` or `✖ FAILED`; a failing step never stops the others.
 

@@ -40,7 +40,8 @@ npm install                # once
 npm run dev                # live preview at http://127.0.0.1:3000
 npm run build              # -> site/dist
 npx wrangler@4.152.0 login # once: authorise your Cloudflare account in the browser
-npm run deploy             # build + upload to Cloudflare Pages project "nea-winter-outlook"
+npm run project            # once: create the Pages project (production branch "production")
+npm run deploy             # build + upload as production -> https://nea-winter-outlook.pages.dev
 ```
 
 Daily refresh: `nea ingest all && nea forecast && nea export`, then `cd site && npm run deploy`. Builds happen on the laptop because the lake lives there. The exported Parquet files are committed, so the site can also be rebuilt from git alone.
@@ -49,3 +50,13 @@ Daily refresh: `nea ingest all && nea forecast && nea export`, then `cd site && 
 
 - **Cloudflare Pages free:** 500 builds/month, unlimited static requests, ≤ 20,000 files and ≤ 25 MiB per file. The site has about 45 files; the largest self-hosted file is 5 MB.
 - **Map tiles:** OpenStreetMap standard tiles, with attribution, which suits low traffic. For heavy traffic, switch the tile URL to a provider with a free key.
+
+## Custom domain: nea-demand.amritphuyal.com.np
+
+The DNS for `amritphuyal.com.np` is on Cloudflare (nameservers `gina`/`pete.ns.cloudflare.com`), so Pages creates the DNS record and the certificate itself.
+
+1. Cloudflare dashboard → **Workers & Pages** → `nea-winter-outlook` → **Custom domains** → **Set up a custom domain**.
+2. Enter `nea-demand.amritphuyal.com.np` → **Continue** → **Activate domain**. Cloudflare adds `CNAME nea-demand → nea-winter-outlook.pages.dev` (proxied).
+3. Wait until the status shows **Active** (SSL issued; usually a few minutes).
+
+**Use a hyphen, not an underscore:** certificate authorities refuse `_` in host names, so `nea_demand` would never get HTTPS. Don't add the CNAME by hand before step 2; Pages must see the domain being added through its own screen.

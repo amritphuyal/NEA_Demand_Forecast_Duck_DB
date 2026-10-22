@@ -6,10 +6,13 @@
     "data": "cd .. && uv run nea export",
     "dev": "observable preview",
     "build": "observable build",
-    "deploy": "observable build && npx wrangler@4.152.0 pages deploy dist --project-name nea-winter-outlook"
+    "deploy": "observable build && npx wrangler@4.152.0 pages deploy dist --project-name nea-winter-outlook --branch production --commit-dirty=true",
+    "project": "npx wrangler@4.152.0 pages project create nea-winter-outlook --production-branch production"
   },
   "devDependencies": {
     "@observablehq/framework": "1.13.4"
   },
-  "engines": {"node": ">=20"}
+  "engines": {
+    "node": ">=20"
+  }
 }

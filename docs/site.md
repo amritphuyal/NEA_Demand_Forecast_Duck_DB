@@ -42,6 +42,7 @@ npm run build              # -> site/dist
 npx wrangler@4.152.0 login # once: authorise your Cloudflare account in the browser
 npm run project            # once: create the Pages project (production branch "production")
 npm run deploy             # build + upload as production -> https://nea-winter-outlook.pages.dev
+# a 522 on pages.dev right after `npm run project` = nothing deployed yet; run `npm run deploy`
 ```
 
 Daily refresh: `nea ingest all && nea forecast && nea export`, then `cd site && npm run deploy`. Builds happen on the laptop because the lake lives there. The exported Parquet files are committed, so the site can also be rebuilt from git alone.

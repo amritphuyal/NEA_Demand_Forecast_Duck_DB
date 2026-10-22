@@ -1,8 +1,8 @@
 {
- "exported_at": "2026-10-26T12:58:36",
+ "exported_at": "2026-10-26T13:33:53",
  "tables": {
   "daily_features": {
-   "rows": 6542,
+   "rows": 6543,
    "columns": [
     "date",
     "bs_year",
@@ -46,7 +46,7 @@
     "q_koshi",
     "q_karnali"
    ],
-   "bytes": 194693,
+   "bytes": 194784,
    "source": "FROM gold.daily_features"
   },
   "monthly_summary": {
@@ -66,7 +66,7 @@
     "tmean_terai",
     "discharge_index"
    ],
-   "bytes": 7417,
+   "bytes": 7432,
    "source": "FROM gold.monthly_summary"
   },
   "annual_history": {
@@ -87,7 +87,7 @@
     "gdp_usd_2015",
     "population"
    ],
-   "bytes": 3033,
+   "bytes": 3043,
    "source": "FROM gold.annual_history"
   },
   "report_monthly_balance": {
@@ -106,7 +106,7 @@
     "method",
     "doc_key"
    ],
-   "bytes": 5341,
+   "bytes": 5324,
    "source": "FROM gold.report_monthly_balance"
   },
   "nea_daily": {
@@ -162,7 +162,7 @@
    "source": "FROM silver.nea_widget"
   },
   "weather_daily": {
-   "rows": 36852,
+   "rows": 36858,
    "columns": [
     "date",
     "point",
@@ -170,17 +170,17 @@
     "tmin_c",
     "precip_mm"
    ],
-   "bytes": 188647,
+   "bytes": 197945,
    "source": "FROM silver.weather_daily"
   },
   "river_discharge_daily": {
-   "rows": 49136,
+   "rows": 49144,
    "columns": [
     "date",
     "point",
     "discharge_m3s"
    ],
-   "bytes": 178241,
+   "bytes": 192313,
    "source": "FROM silver.river_discharge_daily"
   },
   "river_discharge_forecast": {
@@ -193,7 +193,7 @@
     "p25",
     "p75"
    ],
-   "bytes": 16955,
+   "bytes": 16995,
    "source": "FROM silver.river_discharge_forecast"
   },
   "plant_outage": {
@@ -249,7 +249,7 @@
     "name",
     "value"
    ],
-   "bytes": 1981,
+   "bytes": 2008,
    "source": "FROM silver.macro_yearly"
   },
   "report_monthly": {
@@ -263,7 +263,7 @@
     "bs_month",
     "value"
    ],
-   "bytes": 19265,
+   "bytes": 19196,
    "source": "FROM silver.report_monthly"
   },
   "report_annual": {
@@ -280,7 +280,7 @@
    "source": "FROM silver.report_annual"
   },
   "dim_calendar": {
-   "rows": 6542,
+   "rows": 6543,
    "columns": [
     "date",
     "bs_year",
@@ -294,7 +294,7 @@
     "season",
     "fiscal_year"
    ],
-   "bytes": 25699,
+   "bytes": 25773,
    "source": "FROM silver.dim_calendar"
   },
   "ingest_log": {

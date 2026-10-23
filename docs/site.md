@@ -2,13 +2,16 @@
 
 A static site for competition evaluators and enthusiasts: the story, the evidence, a map, and a SQL console. It is hosted free on Cloudflare Pages.
 
+- **Run and deploy commands, and the first-publish record:** [deploy.md](deploy.md).
+- **Architecture diagrams:** [architecture.md](architecture.md).
+
 ## How it works
 
 ```
 DuckLake lake ──nea export──► site/src/data/*.parquet + manifest.json (0.7 MB snapshot)
                                    │  Observable Framework (npm run build)
                                    ▼
-                              site/dist/ (static HTML/JS, 7.4 MB) ──wrangler──► Cloudflare Pages
+                              site/dist/ (static HTML/JS, ~51 MB, mostly Mermaid chunks loaded only on How it works) ──wrangler──► Cloudflare Pages
                                    │  in the visitor's browser
                                    ▼
                               DuckDB-WASM runs SQL on the Parquet files → Observable Plot charts, Leaflet map, SQL explorer
@@ -23,6 +26,7 @@ DuckLake lake ──nea export──► site/src/data/*.parquet + manifest.json 
 | Page | Shows |
 |---|---|
 | Overview (`index.md`) | the answer first: winter import outlook (models only vs with flood losses), key numbers, four-point story |
+| How it works | the architecture diagrams from `docs/architecture.md` (Mermaid; edit both copies) |
 | Map | weather points, river points (basin outlets + plant sites), flood-damaged plants (approx. locations); click for latest values; history + GloFAS forecast per point |
 | Data | snapshot contents, coverage timeline, daily energy balance, the four monthly import sources, annual history |
 | Analysis | seasonality, calendar effects, temperature, river flow vs generation/import, growth and GDP elasticity |
@@ -33,31 +37,13 @@ DuckLake lake ──nea export──► site/src/data/*.parquet + manifest.json 
 
 ## Commands
 
-```bash
-uv run nea export          # lake -> site/src/data (run after `nea forecast` / `nea model`)
-cd site
-npm install                # once
-npm run dev                # live preview at http://127.0.0.1:3000
-npm run build              # -> site/dist
-npx wrangler@4.152.0 login # once: authorise your Cloudflare account in the browser
-npm run project            # once: create the Pages project (production branch "production")
-npm run deploy             # build + upload as production -> https://nea-winter-outlook.pages.dev
-# a 522 on pages.dev right after `npm run project` = nothing deployed yet; run `npm run deploy`
-```
-
-Daily refresh: `nea ingest all && nea forecast && nea export`, then `cd site && npm run deploy`. Builds happen on the laptop because the lake lives there. The exported Parquet files are committed, so the site can also be rebuilt from git alone.
+See [deploy.md](deploy.md).
 
 ## Free-tier fit
 
-- **Cloudflare Pages free:** 500 builds/month, unlimited static requests, ≤ 20,000 files and ≤ 25 MiB per file. The site has about 45 files; the largest self-hosted file is 5 MB.
+- **Cloudflare Pages free:** 500 builds/month, unlimited static requests, ≤ 20,000 files and ≤ 25 MiB per file. The site has about 150 files; the largest self-hosted file is under 5 MB.
 - **Map tiles:** OpenStreetMap standard tiles, with attribution, which suits low traffic. For heavy traffic, switch the tile URL to a provider with a free key.
 
-## Custom domain: nea-demand.amritphuyal.com.np
+## Custom domain
 
-The DNS for `amritphuyal.com.np` is on Cloudflare (nameservers `gina`/`pete.ns.cloudflare.com`), so Pages creates the DNS record and the certificate itself.
-
-1. Cloudflare dashboard → **Workers & Pages** → `nea-winter-outlook` → **Custom domains** → **Set up a custom domain**.
-2. Enter `nea-demand.amritphuyal.com.np` → **Continue** → **Activate domain**. Cloudflare adds `CNAME nea-demand → nea-winter-outlook.pages.dev` (proxied).
-3. Wait until the status shows **Active** (SSL issued; usually a few minutes).
-
-**Use a hyphen, not an underscore:** certificate authorities refuse `_` in host names, so `nea_demand` would never get HTTPS. Don't add the CNAME by hand before step 2; Pages must see the domain being added through its own screen.
+`nea-demand.amritphuyal.com.np`, set up from the Pages dashboard: see [deploy.md](deploy.md#first-publish-2026-10-26-the-steps-actually-followed).

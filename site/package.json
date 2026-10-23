@@ -6,6 +6,7 @@
     "data": "cd .. && uv run nea export",
     "dev": "observable preview",
     "build": "observable build",
+    "preview": "npx wrangler@4.152.0 pages dev dist",
     "deploy": "observable build && npx wrangler@4.152.0 pages deploy dist --project-name nea-winter-outlook --branch production --commit-dirty=true",
     "project": "npx wrangler@4.152.0 pages project create nea-winter-outlook --production-branch production"
   },

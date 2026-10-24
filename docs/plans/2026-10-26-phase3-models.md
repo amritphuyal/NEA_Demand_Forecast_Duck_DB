@@ -1,7 +1,5 @@
 # Phase 3 — Models + Backtests Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
-
 **Goal:** Honest, laptop-sized forecasts with P10/P90 for (a) daily demand / peak / import need 1–30 days ahead, (b) the monthly winter outlook (Nov–Apr), (c) import need. Each is picked by a rolling-origin backtest, stored in `ml.*`, documented per model in `docs/models/`, and run live by `nea forecast`.
 
 **Architecture:** `src/nea_forecast/model.py` holds features, models, backtest, selection, intervals and forecast as plain functions. Daily models are **direct**, one per horizon h ∈ {1, 7, 14, 30}, using only features known at origin t. Monthly models run on the NEA report and customs series. Results upsert into `ml.backtest_metrics` / `ml.forecasts`. Charts go to `docs/model/` and are embedded in `docs/model-results.md`, and each `docs/models/*.md` gets its Results section filled.
@@ -28,7 +26,7 @@
   - Monthly: hold-out winters 2024/25 and 2025/26.
 - **Logs:** go through the CLI tee (`data/logs/<ts>-model.log` / `-forecast.log`). Each step prints `▶` / `✔` with a metrics table, or `✖ FAILED` (the others continue).
 - **Writes:** lake writes only in `ml`; charts in `docs/model/`. Each task fills the Results section of its `docs/models/*.md`.
-- **Commits:** `/caveman:caveman-commit`, no Claude attribution, one change-log entry per task.
+- **Commits:** Conventional Commits, one change-log entry per task.
 
 ## Review Focus
 

@@ -1,7 +1,5 @@
 # NEA Demand Forecast — Blueprint + Phase 1 (Ingestion & DuckLake) Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
-
 ## Context
 
 Mission: forecast Nepal (NEA) electricity demand, focused on **winter** (Nov–Apr) when run-of-river hydro drops, Kulekhani is the only storage, and Nepal imports from India. Repo today = bare `uv init` scaffold (`main.py`, empty README, `pyproject.toml` py>=3.12, no deps).
@@ -20,7 +18,7 @@ Research findings that drive the design:
 - Open-Meteo (free, no key, non-commercial): ERA5 archive `archive-api.open-meteo.com/v1/archive` (1940→, ~5-day lag); GloFAS flood `flood-api.open-meteo.com/v1/flood?daily=river_discharge` (1984→, m³/s).
 - DuckLake 1.0 stable (Apr 2026). No enforced PK/unique → upsert = delete+insert. DuckDB-file catalog = single writer (fine for a laptop).
 
-**Plan file location on execution:** Task 1 copies this plan verbatim to `docs/superpowers/plans/2026-10-25-phase1-ingestion-lakehouse.md` (the repo's blueprint record).
+**Plan file location on execution:** Task 1 copies this plan verbatim to `docs/plans/2026-10-25-phase1-ingestion-lakehouse.md` (the repo's blueprint record).
 
 ---
 
@@ -34,7 +32,7 @@ Research findings that drive the design:
 
 ## Global Constraints
 
-- No LLM / Claude API anywhere in the pipeline. Pure Python parsing.
+- No LLM / AI API anywhere in the pipeline. Pure Python parsing.
 - Python `>=3.12`, managed with `uv` (`uv add`, `uv run`). Package lives in `src/nea_forecast/`, CLI entry `nea = "nea_forecast.cli:main"`.
 - Polite scraping: ≥2 s between requests to the same host, User-Agent `nea-demand-forecast/0.1 (+research; contact: repo owner)`, 3 retries with exponential backoff.
 - Raw downloads are immutable: `data/raw/<source>/<key>.<ext>`; never overwritten unless `--force`. `data/` is gitignored.
@@ -42,10 +40,7 @@ Research findings that drive the design:
 - Every re-run is idempotent: no duplicate rows; a key is logged `ok` only after its silver upsert commits.
 - Every task that changes the repo appends a dated entry to `docs/developer/decisions.md` (change log section) in the same commit.
 - Tests run offline (`uv run pytest`) against committed fixtures in `tests/fixtures/`; live-network checks are manual verification steps only.
-- Commits: generate message with `/caveman-commit` (Conventional Commits, subject ≤50 chars), then commit. **No Claude mention, no `Co-Authored-By` line.**
-- Style all the way: ponytail (laziest working code, stdlib first, no speculative abstractions) + caveman (terse prose).
-- Token budget: execute **Native** (inline, no per-task subagents). If any step stalls (long live backfill, repeated failures, a source blocked) → stop, report state + recommendation, ask user to review before continuing. Long live runs go to background, not polled.
-- On approval: save memory feedback (caveman-commit + no attribution; token-frugal stop-and-ask rule).
+- Commits: Conventional Commits, subject ≤50 chars.
 
 ## Review Focus
 
@@ -67,7 +62,7 @@ docs/blueprint.md                 # mission, architecture, roadmap phases 1–4,
 docs/flow.md                      # end-to-end data flow + incremental logic + cron
 docs/data-sources.md              # every source researched, status, extra data points
 docs/developer/decisions.md       # ADR log + change log
-docs/superpowers/plans/2026-10-25-phase1-ingestion-lakehouse.md
+docs/plans/2026-10-25-phase1-ingestion-lakehouse.md
 src/nea_forecast/__init__.py
 src/nea_forecast/lake.py          # connect, schema bootstrap, upsert, ingest_log
 src/nea_forecast/schema.sql       # DDL for bronze/silver tables + gold views
@@ -88,7 +83,7 @@ Delete `main.py` (replaced by CLI).
 ### Task 1: Docs + project skeleton
 
 **Files:**
-- Create: `README.md`, `docs/blueprint.md`, `docs/flow.md`, `docs/data-sources.md`, `docs/developer/decisions.md`, `docs/superpowers/plans/2026-10-25-phase1-ingestion-lakehouse.md`, `sources.json`, `src/nea_forecast/__init__.py`, `src/nea_forecast/cli.py`
+- Create: `README.md`, `docs/blueprint.md`, `docs/flow.md`, `docs/data-sources.md`, `docs/developer/decisions.md`, `docs/plans/2026-10-25-phase1-ingestion-lakehouse.md`, `sources.json`, `src/nea_forecast/__init__.py`, `src/nea_forecast/cli.py`
 - Modify: `pyproject.toml`, `.gitignore`; Delete: `main.py`
 
 **Interfaces:**
@@ -361,4 +356,4 @@ def test_gold_view_joins(tmp_path):
 2. `uv run nea ingest all` twice → second run adds no duplicate NDOR/doc/weather rows.
 3. `uv run nea status` → `nea_daily` 2023-04-14..2025-01-11 (+ Wayback days), weather/discharge 2010..today−5d, DHM ≈300 stations/snapshot, calendar 2010..+400 d.
 4. Query `gold.daily_features` from a fresh `duckdb` shell: `ATTACH 'ducklake:data/lake/nea.ducklake' AS lake (READ_ONLY); FROM lake.gold.daily_features LIMIT 5;`
-5. Docs present: README credits, blueprint, flow, data-sources, decisions (ADR + change log), this plan under `docs/superpowers/plans/`.
+5. Docs present: README credits, blueprint, flow, data-sources, decisions (ADR + change log), this plan under `docs/plans/`.

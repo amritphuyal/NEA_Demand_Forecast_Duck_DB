@@ -2,6 +2,7 @@
 name = "nea-demand-forecast-duck-db"
 version = "0.1.0"
 description = "Nepal (NEA) electricity demand forecasting on a DuckLake lakehouse"
+license = "MIT"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [

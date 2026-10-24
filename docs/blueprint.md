@@ -33,10 +33,10 @@ Lakehouse = DuckLake: catalog `data/lake/nea.sqlite` (SQLite: readers work durin
 
 | Phase | Scope | Plan | Status |
 |---|---|---|---|
-| 1 | Ingestion + DuckLake (NDOR, NEA reports → Markdown + monthly/annual tables + OCR, weather, discharge, NEA widget, India customs + CERC, World Bank, calendar, gold views) | `docs/superpowers/plans/2026-10-25-phase1-ingestion-lakehouse.md` | done 2026-10-25 (DHM gauges pending: site down) |
-| 2 | EDA: seasonality, weather/holiday/discharge effects, import-source reconciliation, gaps → model inputs; DHM manual loader when data arrives | `docs/superpowers/plans/2026-10-25-phase2-eda.md` → `docs/eda-findings.md` | done 2026-10-25 |
-| 3 | Models + backtests → `ml.*` (inputs: `docs/eda-findings.md` § Phase 3 inputs) | `docs/superpowers/plans/2026-10-26-phase3-models.md` → `docs/model-results.md` | done 2026-10-26 |
-| 4 | `nea export` → Parquet → Observable Framework site on Cloudflare Pages (`docs/site.md`) | `docs/superpowers/plans/2026-10-26-phase4-site.md` | built 2026-10-26; deploy after Cloudflare login |
+| 1 | Ingestion + DuckLake (NDOR, NEA reports → Markdown + monthly/annual tables + OCR, weather, discharge, NEA widget, India customs + CERC, World Bank, calendar, gold views) | `docs/plans/2026-10-25-phase1-ingestion-lakehouse.md` | done 2026-10-25 (DHM gauges pending: site down) |
+| 2 | EDA: seasonality, weather/holiday/discharge effects, import-source reconciliation, gaps → model inputs; DHM manual loader when data arrives | `docs/plans/2026-10-25-phase2-eda.md` → `docs/eda-findings.md` | done 2026-10-25 |
+| 3 | Models + backtests → `ml.*` (inputs: `docs/eda-findings.md` § Phase 3 inputs) | `docs/plans/2026-10-26-phase3-models.md` → `docs/model-results.md` | done 2026-10-26 |
+| 4 | `nea export` → Parquet → Observable Framework site on Cloudflare Pages (`docs/site.md`) | `docs/plans/2026-10-26-phase4-site.md` | built 2026-10-26; deploy after Cloudflare login |
 
 ## Model strategy
 

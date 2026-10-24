@@ -48,7 +48,7 @@ FROM lake.gold.daily_features LIMIT 5;
 | `docs/models/` | Forecasting approach + one doc per model + literature review (defence of the method) |
 | `docs/model-results.md` | What ships, backtest results, live winter outlook |
 | `docs/developer/decisions.md` | Architecture decisions + change log |
-| `docs/superpowers/plans/` | Phase implementation plans |
+| `docs/plans/` | Phase implementation plans |
 
 ## Credits
 
@@ -56,3 +56,7 @@ FROM lake.gold.daily_features LIMIT 5;
 - Data: Nepal Electricity Authority (NEA), Department of Hydrology and Meteorology Nepal (DHM), [Open-Meteo](https://open-meteo.com/) (CC BY 4.0), Copernicus GloFAS (river discharge), ECMWF ERA5 (weather).
 
 Educational, non-commercial project.
+
+## License
+
+Code: [MIT](LICENSE). The data belongs to its publishers and keeps their terms. That covers NEA reports, Open-Meteo / ERA5 / GloFAS (CC BY 4.0), World Bank, India TradeStat, CERC and the news sources in `outages.json`; see Credits above. One dependency has a stronger licence: `pymupdf4llm` / PyMuPDF (AGPL), used to turn report PDFs into Markdown. Review ADR-002 in `docs/developer/decisions.md` before redistributing a closed build.

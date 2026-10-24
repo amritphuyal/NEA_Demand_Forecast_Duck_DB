@@ -17,7 +17,7 @@ def rows(doc: dict) -> list[dict]:
 
 def ingest(con, root: Path = Path("data")) -> int:
     r = rows(json.loads(OUTAGES_JSON.read_text()))
-    con.execute("DELETE FROM silver.plant_outage")  # ponytail: tiny table, register is the truth
+    con.execute("DELETE FROM silver.plant_outage")  # tiny table; the JSON register is the truth
     n = upsert(con, "silver.plant_outage", r, ("event", "plant"))
     mw = sum(x["capacity_mw"] for x in r)
     print(f"  outages: {n} entries, {mw:,.0f} MW out of service", flush=True)

@@ -63,7 +63,7 @@ def seasonality(con, out: Path | None) -> dict:
 
 def temperature(con, out: Path | None) -> dict:
     """Heating (winter, Kathmandu night low) and cooling (summer, Terai mean) effect on daily requirement.
-    Working days only so weekends/holidays don't blur it. ponytail: no detrending; demand growth over the
+    Working days only so weekends/holidays don't blur it. Simplification: no detrending; demand growth over the
     2 years is small next to the seasonal swing within one winter."""
     res, sql = {}, f"FROM {DAILY} AND NOT is_saturday AND NOT is_holiday AND season = ?"
     for season, col, key in (("winter", "tmin_ktm", "ktm"), ("summer", "tmean_terai", "terai")):

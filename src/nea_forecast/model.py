@@ -178,7 +178,7 @@ def _rows(c: dict, target: str, h: int, weather: str) -> list[tuple]:
 def backtest(c: dict, models: dict, targets: list[str], horizons: list[int], weather: str,
              start: date = BT_START, refit_days: int = 7) -> tuple[list[dict], dict]:
     """Rolling origin: every origin >= start is forecast by a model trained only on targets dated <= the
-    origin. Models refit every 7 origins, trained as of the first one (ponytail: daily refit = 7x the cost).
+    origin. Models refit every 7 origins, trained as of the first one (daily refit would cost 7x).
     Returns metric rows and errors {(model, target, h): [(origin, date, y, yhat)]}."""
     errors = {}
     for target in targets:
@@ -744,7 +744,7 @@ def _daily_live(c: dict, chosen: dict, today: date, run_id: str, now) -> list[di
         if ("requirement_mwh", h) in by and ("domestic_gen_mwh", h) in by:
             r, g = by[("requirement_mwh", h)], by[("domestic_gen_mwh", h)]
             rows.append({**r, "model": "diff", "target": "import_need_mwh", "yhat": r["yhat"] - g["yhat"],
-                         "p10": r["p10"] - g["p90"], "p90": r["p90"] - g["p10"]})  # ponytail: conservative bounds
+                         "p10": r["p10"] - g["p90"], "p90": r["p90"] - g["p10"]})  # conservative bounds
     print(f"✔ daily forecast: {len(rows)} rows in {time.time() - t:.0f}s", flush=True)
     return rows
 

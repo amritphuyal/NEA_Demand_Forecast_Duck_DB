@@ -4,7 +4,7 @@ toc: true
 
 ```js
 import {q} from "./components/db.js";
-import {freshness} from "./components/common.js";
+import {freshness, colors} from "./components/common.js";
 const selection = FileAttachment("data/selection.json").json();
 ```
 
@@ -31,10 +31,10 @@ const T = {requirement_mwh: "Daily demand (MWh)", peak_demand_mw: "Peak (MW)", d
 function small(data, colorKey, domain, label) {
   return htl.html`<div style="display: flex; flex-wrap: wrap; gap: 12px;">${Object.keys(T).filter((t) => data.some((d) => d.target === t)).map((t) => htl.html`<div class="card" style="margin: 0;">${
     Plot.plot({title: T[t], width: 300, height: 220, x: {label: "horizon (days)", ticks: [1, 7, 14, 30]},
-      y: {grid: true, label: "winter MAE", zero: true}, color: {domain, tickFormat: label},
-      marks: [Plot.lineY(data.filter((d) => d.target === t), {x: "horizon", y: "mae", stroke: colorKey, marker: "dot", tip: true})]})}</div>`)}</div>`;
+      y: {grid: true, label: "winter MAE", zero: true}, color: {...colors(domain), tickFormat: label},
+      marks: [Plot.lineY(data.filter((d) => d.target === t), {x: "horizon", y: "mae", stroke: colorKey, strokeWidth: (d) => ["ridge", "clim"].includes(d[colorKey]) ? 2.5 : 1.5, marker: "dot", tip: true})]})}</div>`)}</div>`;
 }
-display(Plot.legend({color: {domain: ["naive", "snaive", "wma30", "ridge", "lgbm"]}}));
+display(Plot.legend({color: colors(["naive", "snaive", "wma30", "ridge", "lgbm"])}));
 display(small(bt, "model", ["naive", "snaive", "wma30", "ridge", "lgbm"]));
 ```
 
@@ -46,10 +46,10 @@ Each chart has its own units, and lower is better. For demand and peak, ridge is
 const sel = Object.entries(await selection).map(([k, v]) => ({target: k.split("|")[0], horizon: k.split("|")[1], model: v}));
 const win = await q(`SELECT target, horizon, model, mae, mape, coverage, dm_p FROM backtest_metrics WHERE season = 'winter' AND weather = 'clim'`);
 const look = new Map(win.map((d) => [`${d.target}|${d.horizon}|${d.model}`, d]));
-display(Inputs.table(sel.map((s) => ({...s, ...(look.get(`${s.target}|${s.horizon}|${s.model}`) ?? {})})),
+display(Inputs.table(sel.map((s) => ({...s, ...(look.get(`${s.target}|${s.horizon}|${s.model}`) ?? {}), target: T[s.target]?.replace(/ \(.*/, "") ?? s.target})),
   {columns: ["target", "horizon", "model", "mae", "mape", "coverage", "dm_p"],
    format: {mae: (x) => x?.toFixed(0), mape: (x) => x == null ? "" : x.toFixed(1) + "%", coverage: (x) => x == null ? "" : (100 * x).toFixed(0) + "%", dm_p: (x) => x?.toFixed(3) ?? ""},
-   header: {mape: "MAPE", coverage: "P10–P90 coverage", dm_p: "DM p vs simpler"}}))
+   header: {target: "Target", horizon: "Days ahead", model: "Model", mae: "Winter MAE", mape: "MAPE", coverage: "P10–P90 coverage", dm_p: "DM p vs simpler"}}))
 ```
 
 - `import_need_method` = **diff**: import need is forecast as demand − generation. It beat the direct model at 14–30 days and ties at 1–7.
@@ -63,7 +63,7 @@ const W = {clim: "normal weather (what we use)", q_actual: "river flow known", a
 ```
 
 ```js
-display(Plot.legend({color: {domain: Object.keys(W), tickFormat: (k) => W[k]}}));
+display(Plot.legend({color: {...colors(Object.keys(W)), tickFormat: (k) => W[k]}}));
 display(small(wx, "weather", Object.keys(W), (k) => W[k]));
 ```
 
@@ -83,8 +83,8 @@ const fb = await q(`SELECT f.date, f.yhat, f.p10, f.p90, CASE '${pick[0]}' WHEN 
 ```
 
 ```js
-Plot.plot({width, height: 320, y: {grid: true}, color: {legend: true},
-  marks: [Plot.areaY(fb, {x: "date", y1: "p10", y2: "p90", fill: "steelblue", fillOpacity: 0.2}),
+Plot.plot({width, height: 320, y: {grid: true}, color: {legend: true, domain: ["actual", "forecast"], range: ["var(--theme-foreground)", "var(--nea-demand)"]},
+  marks: [Plot.areaY(fb, {x: "date", y1: "p10", y2: "p90", fill: "var(--nea-demand)", fillOpacity: 0.2}),
     Plot.lineY(fb, {x: "date", y: "actual", stroke: () => "actual", strokeWidth: 1}),
     Plot.lineY(fb, {x: "date", y: "yhat", stroke: () => "forecast", strokeWidth: 1, tip: true})]})
 ```
@@ -98,7 +98,7 @@ const MON = ["", "Nov", "Dec", "Jan", "Feb", "Mar", "Apr"];
 
 ```js
 Plot.plot({width, height: 260, x: {label: "month (forecast made 31 Oct)", tickFormat: (h) => MON[h], ticks: [1, 2, 3, 4, 5, 6]}, y: {grid: true, label: "MAE (GWh/month)"},
-  fx: {label: null, tickFormat: (t) => t === "demand_gwh" ? "Demand" : "Import"}, color: {legend: true}, facet: {data: mb, x: "target"},
+  fx: {label: null, tickFormat: (t) => t === "demand_gwh" ? "Demand" : "Import"}, color: {legend: true, ...colors(["combo", "ets", "linear_m", "snaive_growth"])}, facet: {data: mb, x: "target"},
   marks: [Plot.lineY(mb, {x: "horizon", y: "mae", stroke: "model", fx: "target", marker: "dot", tip: true})]})
 ```
 

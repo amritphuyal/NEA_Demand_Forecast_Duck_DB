@@ -1,0 +1,128 @@
+/* Site theme: Nepal flag crimson (imports, losses), flag blue (demand, links), glacier teal (rivers, hydro).
+   Archivo (variable width) for headings, numbers and UI; Source Serif 4 for reading text. */
+@import url("observablehq:default.css");
+@import url("observablehq:theme-air.css");
+@import url("observablehq:theme-near-midnight.css") (prefers-color-scheme: dark);
+
+:root {
+  --theme-foreground: #15202b;
+  --theme-foreground-focus: #1e4fa8;
+  --theme-background-a: #f4f7f9;
+  --nea-river: #12828a;
+  --nea-import: #c8102e;
+  --nea-demand: #1e4fa8;
+  --nea-line: color-mix(in srgb, var(--theme-foreground) 12%, transparent);
+  --display: "Archivo", var(--sans-serif);
+  --sans-serif: "Archivo", -apple-system, BlinkMacSystemFont, "segoe ui", roboto, arial, sans-serif;
+  --theme-blue: var(--nea-demand);
+  --theme-red: var(--nea-import);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --theme-foreground: #e2e8ee;
+    --theme-foreground-focus: #86a8ff;
+    --theme-background-b: #0f1a26;
+    --theme-background-a: #142233;
+    --nea-river: #39bfc4;
+    --nea-import: #ff5c6c;
+    --nea-demand: #86a8ff;
+  }
+}
+
+/* type */
+h1, h2, h3, h4, #observablehq-sidebar > ol > li, .nea-lede, .nea-figures, figcaption {
+  font-family: var(--display);
+}
+h1 {
+  font-size: clamp(2rem, 4.4vw, 3.25rem);
+  font-weight: 760;
+  font-stretch: 112%;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  max-width: 18em;
+  margin-bottom: 0.6rem;
+}
+h2 { font-weight: 680; font-stretch: 106%; letter-spacing: -0.01em; }
+h3 { font-weight: 650; }
+p, li { max-width: 68ch; }
+table, .big, .nea-figures { font-variant-numeric: tabular-nums; }
+::selection { background: color-mix(in srgb, var(--nea-river) 30%, transparent); }
+
+/* sidebar: the title reads as a mark, the active page gets the river rule */
+#observablehq-sidebar { border-right: 1px solid var(--nea-line); }
+#observablehq-sidebar > ol:first-child > li:first-child a,
+#observablehq-header a[href] { font-weight: 760; font-stretch: 112%; letter-spacing: -0.01em; }
+.observablehq-link-active a { color: var(--theme-foreground) !important; }
+.observablehq-link-active::before { background: var(--nea-river) !important; }
+
+/* cards: flat panels, hairline edge */
+.card {
+  background: var(--theme-background);
+  border: 1px solid var(--nea-line);
+  border-radius: 10px;
+  box-shadow: none;
+}
+.card h2 { font-size: 0.95rem; font-weight: 600; font-stretch: 100%; color: var(--theme-foreground-muted); }
+
+/* plots and tables */
+figure > h2, figure > h3 { font-family: var(--display); }
+figure h2 { font-stretch: 100%; }
+form table thead th, table thead th { font-family: var(--display); font-weight: 600; }
+
+a:focus-visible, button:focus-visible, select:focus-visible, textarea:focus-visible, input:focus-visible {
+  outline: 2px solid var(--nea-river);
+  outline-offset: 2px;
+}
+
+/* shared helpers */
+.muted { color: var(--theme-foreground-muted); }
+.small { font-size: 0.85rem; }
+
+/* overview: lede sentence and the figure strip */
+.nea-lede {
+  font-size: clamp(1.25rem, 2.2vw, 1.6rem);
+  line-height: 1.3;
+  font-weight: 450;
+  max-width: 34em;
+  margin: 1.25rem 0 1.5rem;
+}
+.nea-lede strong { font-weight: 760; }
+.nea-figures {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 0 2rem;
+  margin: 2rem 0;
+}
+.nea-figures div { border-top: 2px solid var(--theme-foreground); padding: 0.6rem 0 1rem; }
+.nea-figures div.import { border-color: var(--nea-import); }
+.nea-figures div.river { border-color: var(--nea-river); }
+.nea-figures div.demand { border-color: var(--nea-demand); }
+.nea-figures dt { font-size: 0.9rem; color: var(--theme-foreground-muted); }
+.nea-figures dd { margin: 0.15rem 0 0.25rem; font-size: 2rem; font-weight: 720; font-stretch: 108%; letter-spacing: -0.01em; }
+.nea-figures dd small { font-size: 0.95rem; font-weight: 500; color: var(--theme-foreground-muted); }
+.nea-figures p { margin: 0; font-size: 0.85rem; color: var(--theme-foreground-muted); }
+
+.nea-key { display: flex; flex-wrap: wrap; gap: 0.4rem 1.25rem; font: 0.85rem var(--display); color: var(--theme-foreground-muted); margin: 0.25rem 0 0.5rem; }
+.nea-key span::before { content: ""; display: inline-block; width: 14px; height: 3px; margin-right: 6px; vertical-align: middle; background: var(--c); }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+/* form controls (SQL editor, selects) */
+main form textarea, main form select {
+  background: var(--theme-background-alt);
+  color: var(--theme-foreground);
+  border: 1px solid var(--nea-line);
+  border-radius: 8px;
+}
+main form textarea { padding: 10px 12px; font: 13px/1.55 var(--monospace); }
+main form textarea:focus { border-color: var(--nea-river); outline: none; }
+main form button {
+  font: 600 13px var(--sans-serif);
+  background: var(--nea-demand);
+  color: #fff;
+  border: 0;
+  border-radius: 6px;
+  padding: 6px 16px;
+  cursor: pointer;
+}
+@media (prefers-color-scheme: dark) { main form button { color: #0f1a26; } }

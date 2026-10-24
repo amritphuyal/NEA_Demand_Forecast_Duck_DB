@@ -40,7 +40,7 @@ const cov = await q(`
 
 ```js
 Plot.plot({width, height: 300, marginLeft: 220, x: {grid: true, label: null}, y: {label: null},
-  marks: [Plot.barX(cov, {y: "series", x1: "first", x2: "last", fill: "steelblue", tip: true}), Plot.dot(cov, {y: "series", x: "last", fill: "steelblue"}), Plot.ruleX([new Date()], {stroke: "red", strokeDasharray: "4"})]})
+  marks: [Plot.barX(cov, {y: "series", x1: "first", x2: "last", fill: "var(--nea-demand)", tip: true}), Plot.dot(cov, {y: "series", x: "last", fill: "var(--nea-demand)"}), Plot.ruleX([new Date()], {stroke: "var(--nea-import)", strokeDasharray: "4"})]})
 ```
 
 The NEA daily reports stop in January 2025; NEA stopped publishing them. Daily figures resume from the NEA homepage widget (2026-10-25 →). Monthly and annual series fill the gap.
@@ -89,12 +89,12 @@ const ann = await q(`SELECT year, total_gwh, national_peak_mw, import_gwh, 100 *
 
 ```js
 Plot.plot({title: "Annual energy (GWh)", width: width / 2, height: 260, y: {grid: true}, x: {tickFormat: (y) => y % 2 ? "" : y, label: null},
-  marks: [Plot.barY(ann, {x: "year", y: "total_gwh", fill: "steelblue", tip: true})]})
+  marks: [Plot.barY(ann, {x: "year", y: "total_gwh", fill: "var(--nea-demand)", tip: true})]})
 ```
 
 ```js
 Plot.plot({title: "Import from India, % of annual energy", width: width / 2, height: 260, y: {grid: true}, x: {tickFormat: (y) => y % 2 ? "" : y, label: null},
-  marks: [Plot.barY(ann, {x: "year", y: "import_share", fill: "#d62728", tip: true})]})
+  marks: [Plot.barY(ann, {x: "year", y: "import_share", fill: "var(--nea-import)", tip: true})]})
 ```
 
 </div>

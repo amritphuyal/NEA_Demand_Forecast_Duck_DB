@@ -13,10 +13,24 @@ export const IMPORT_MONTHLY = `
   SELECT month, month_value / 1000 / 1.09 AS gwh FROM india_trade_monthly
   WHERE direction = 'nepal_import' AND measure = 'mwh'`;
 
+// the three basin outlets that make up gold.daily_features.discharge_index
+export const BASINS = `'koshi_chatara', 'narayani_devghat', 'karnali_chisapani'`;
+
+// chart colours (CSS variables from theme.css, so they follow light/dark mode)
+export const OCHRE = "#c28a12";
+export const COLOR = {
+  naive: "var(--theme-foreground-faint)", snaive: "var(--theme-foreground-fainter)", wma30: "var(--theme-foreground-muted)",
+  ridge: "var(--nea-demand)", lgbm: OCHRE,
+  combo: "var(--nea-demand)", ets: OCHRE, linear_m: "var(--theme-foreground-muted)", snaive_growth: "var(--theme-foreground-faint)",
+  clim: "var(--nea-demand)", q_actual: "var(--nea-river)", actual: OCHRE
+};
+export const colors = (domain) => ({domain, range: domain.map((k) => COLOR[k])});
+
 export const LATEST_LIVE = `(SELECT max(run_id) FROM forecasts WHERE run_id LIKE 'live-%')`;
 
 export async function freshness() {
   const m = await manifest;
-  return html`<p class="muted small">Data snapshot exported from the lake on <b>${m.exported_at.replace("T", " ")}</b>
-    · ${Object.keys(m.tables).length} tables · every chart is a live SQL query on that snapshot (see <a href="./sql">SQL explorer</a>).</p>`;
+  const at = new Date(m.exported_at);
+  return html`<p class="muted small">Snapshot of ${Object.keys(m.tables).length} tables, exported ${at.toLocaleString("en-GB", {day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit"})}.
+    Every chart is a SQL query on it; run your own in the <a href="./sql">SQL explorer</a>.</p>`;
 }

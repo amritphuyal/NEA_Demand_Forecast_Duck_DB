@@ -4,16 +4,10 @@ toc: false
 
 ```js
 import {q} from "./components/db.js";
-import {DEMAND_MONTHLY, IMPORT_MONTHLY, LATEST_LIVE, freshness} from "./components/common.js";
+import {DEMAND_MONTHLY, IMPORT_MONTHLY, LATEST_LIVE, BASINS, freshness} from "./components/common.js";
 ```
 
 # How much electricity will Nepal need from India this winter?
-
-```js
-display(await freshness())
-```
-
-Nepal's grid is almost all **run-of-river hydro**. In winter (Nov–Apr) the rivers run low, generation falls, and Nepal buys power from India. This site forecasts that winter need from 16 years of weather and river data, NEA's own reports, and India's customs records, and shows the evidence behind every number.
 
 ```js
 const fc = await q(`SELECT model, target, date, yhat, p10, p90 FROM forecasts
@@ -22,57 +16,93 @@ const lost = (await q(`SELECT sum(capacity_mw) AS mw, sum(capacity_mw) FILTER (s
 const sum = (model, target, months) => fc.filter((d) => d.model === model && d.target === target && (!months || months.includes(d.date.getUTCMonth()))).reduce((s, d) => s + d.yhat, 0);
 const JAN_APR = [0, 1, 2, 3];
 const adj = sum("combo+outage", "import_gwh", JAN_APR), base = sum("combo", "import_gwh", JAN_APR), demand = sum("combo", "demand_gwh");
+const START = new Date("2019-01-01");
+const river = await q(`SELECT date_trunc('month', date)::DATE AS month, avg(discharge_index) AS q FROM daily_features
+  WHERE date >= '${START.toISOString().slice(0, 10)}' AND discharge_index IS NOT NULL GROUP BY 1 ORDER BY 1`);
+const riverFc = await q(`
+  WITH d AS (SELECT date, sum(discharge_m3s) AS q, sum(p25) AS p25, sum(p75) AS p75 FROM river_discharge_forecast
+             WHERE issued = (SELECT max(issued) FROM river_discharge_forecast) AND point IN (${BASINS}) GROUP BY date HAVING count(*) = 3),
+       clim AS (SELECT month(date) AS m, avg(discharge_index) AS normal FROM daily_features WHERE year(date) BETWEEN 2010 AND 2022 GROUP BY 1)
+  SELECT date_trunc('month', date)::DATE AS month, avg(q) AS q, avg(p25) AS p25, avg(p75) AS p75, any_value(normal) AS normal
+  FROM d JOIN clim ON clim.m = month(d.date) GROUP BY 1 ORDER BY 1`);
+const winterFc = riverFc.filter((d) => JAN_APR.includes(d.month.getUTCMonth()));
+const riverAnom = winterFc.reduce((s, d) => s + d.q, 0) / winterFc.reduce((s, d) => s + d.normal, 0) - 1;
+const imp = await q(`${IMPORT_MONTHLY} AND month >= '${START.toISOString().slice(0, 10)}' ORDER BY month`);
+const fmt = (x) => x.toLocaleString("en", {maximumFractionDigits: 0});
 ```
 
-<div class="grid grid-cols-4">
-  <div class="card"><h2>Import Jan–Apr 2027</h2><span class="big">${adj.toLocaleString('en', {maximumFractionDigits: 0})} GWh</span><p class="muted">flood-adjusted forecast</p></div>
-  <div class="card"><h2>Without the flood</h2><span class="big">${base.toLocaleString('en', {maximumFractionDigits: 0})} GWh</span><p class="muted">models only: +${((adj / base - 1) * 100).toFixed(0)}% from flood losses</p></div>
-  <div class="card"><h2>Capacity lost (Aug 2026 flood)</h2><span class="big">${lost.mw.toFixed(0)} MW</span><p class="muted">${lost.destroyed.toFixed(0)} MW destroyed, rest cut off</p></div>
-  <div class="card"><h2>Winter demand Nov–Apr</h2><span class="big">${demand.toLocaleString('en', {maximumFractionDigits: 0})} GWh</span><p class="muted">within 1% of the GDP-growth path</p></div>
-</div>
+<p class="nea-lede">From January to April 2027 Nepal will need about <strong>${fmt(adj)} GWh</strong> of electricity from India. The models alone expect ${fmt(base)} GWh; the rest comes from the August 2026 flood, which took ${fmt(lost.mw)} MW off the grid.</p>
 
 ```js
-const hist = await q(`${IMPORT_MONTHLY} AND month >= '2022-01-01' ORDER BY month`);
+const X = {domain: [START, new Date("2027-05-01")]};
+const today = new Date();
+const imports = fc.filter((d) => d.target === "import_gwh");
 ```
 
-<div class="card">
+<figure class="nea-mirror">
+
+<div class="nea-key"><span style="--c: var(--nea-river)">River flow, three big basins</span><span style="--c: var(--theme-foreground-muted)">Normal flow (2010–2022)</span><span style="--c: var(--nea-import)">Import from India, with flood losses</span><span style="--c: color-mix(in srgb, var(--nea-import) 45%, transparent)">Import, models only</span></div>
 
 ```js
 Plot.plot({
-  title: "Monthly import from India (GWh): history and winter 2026/27 forecast",
-  subtitle: "Shaded = P10–P90. Red adds generation lost in the Aug 2026 flood.",
-  width, height: 340, y: {grid: true, label: "GWh / month"}, x: {label: null},
-  color: {legend: true, domain: ["actual (customs)", "forecast: models only", "forecast: with flood losses"], range: ["currentColor", "steelblue", "#d62728"]},
+  width, height: 210, marginLeft: 64, marginBottom: 0, x: {...X, axis: null},
+  y: {label: "River flow (m³/s)", grid: true, ticks: 4, tickFormat: (d) => d ? `${d / 1000}k` : ""},
   marks: [
-    Plot.lineY(hist, {x: "month", y: "gwh", stroke: () => "actual (customs)"}),
-    Plot.areaY(fc.filter((d) => d.target === "import_gwh"), {x: "date", y1: "p10", y2: "p90", fill: (d) => d.model === "combo" ? "forecast: models only" : "forecast: with flood losses", fillOpacity: 0.15}),
-    Plot.lineY(fc.filter((d) => d.target === "import_gwh"), {x: "date", y: "yhat", stroke: (d) => d.model === "combo" ? "forecast: models only" : "forecast: with flood losses", marker: "circle"}),
-    Plot.ruleY([0])
+    Plot.areaY(river, {x: "month", y: "q", fill: "var(--nea-river)", fillOpacity: 0.28, curve: "monotone-x"}),
+    Plot.lineY(river, {x: "month", y: "q", stroke: "var(--nea-river)", strokeWidth: 1.5, curve: "monotone-x", tip: {format: {x: "%b %Y"}}}),
+    Plot.areaY(riverFc, {x: "month", y1: "p25", y2: "p75", fill: "var(--nea-river)", fillOpacity: 0.18, curve: "monotone-x"}),
+    Plot.lineY(riverFc, {x: "month", y: "q", stroke: "var(--nea-river)", strokeWidth: 2, strokeDasharray: "4,3", curve: "monotone-x"}),
+    Plot.lineY(riverFc, {x: "month", y: "normal", stroke: "var(--theme-foreground-muted)", strokeWidth: 1, curve: "monotone-x"}),
+    Plot.ruleX([today], {stroke: "var(--theme-foreground-faint)", strokeDasharray: "2,3"}),
+    Plot.text(["today"], {x: today, frameAnchor: "top", dx: -5, dy: 2, textAnchor: "end", fill: "var(--theme-foreground-muted)", fontSize: 11})
   ]
 })
 ```
 
-</div>
+```js
+Plot.plot({
+  width, height: 230, marginLeft: 64, marginTop: 28, x: {...X, axis: "top", label: null, tickFormat: "%Y"},
+  y: {label: "Import (GWh/month)", reverse: true, grid: true, ticks: 4, labelAnchor: "bottom"},
+  marks: [
+    Plot.areaY(imp, {x: "month", y: "gwh", fill: "var(--nea-import)", fillOpacity: 0.28, curve: "monotone-x"}),
+    Plot.lineY(imp, {x: "month", y: "gwh", stroke: "var(--nea-import)", strokeWidth: 1.5, curve: "monotone-x", tip: {format: {x: "%b %Y"}}}),
+    Plot.areaY(imports.filter((d) => d.model === "combo+outage"), {x: "date", y1: "p10", y2: "p90", fill: "var(--nea-import)", fillOpacity: 0.15, curve: "monotone-x"}),
+    Plot.lineY(imports.filter((d) => d.model === "combo"), {x: "date", y: "yhat", stroke: "var(--nea-import)", strokeOpacity: 0.45, strokeWidth: 1.5, strokeDasharray: "4,3", curve: "monotone-x"}),
+    Plot.lineY(imports.filter((d) => d.model === "combo+outage"), {x: "date", y: "yhat", stroke: "var(--nea-import)", strokeWidth: 2.5, curve: "monotone-x", tip: {format: {x: "%b %Y"}}}),
+    Plot.ruleX([today], {stroke: "var(--theme-foreground-faint)", strokeDasharray: "2,3"}),
+    Plot.ruleY([0], {stroke: "var(--theme-foreground)"})
+  ]
+})
+```
+
+<figcaption>Every dry season the rivers fall and imports rise. Dashed river line: GloFAS forecast, band = ensemble quartiles. Import band: P10–P90.</figcaption>
+</figure>
+
+<dl class="nea-figures">
+  <div class="import"><dt>Import, Jan–Apr 2027</dt><dd>${fmt(adj)} <small>GWh</small></dd><p>+${((adj / base - 1) * 100).toFixed(0)}% on the models-only ${fmt(base)} GWh</p></div>
+  <div class="river"><dt>River flow, Jan–Apr 2027</dt><dd>${riverAnom > 0 ? "+" : "−"}${Math.abs(riverAnom * 100).toFixed(0)}<small>% vs normal</small></dd><p>GloFAS forecast, three big basins</p></div>
+  <div><dt>Capacity lost in the Aug 2026 flood</dt><dd>${fmt(lost.mw)} <small>MW</small></dd><p>${fmt(lost.destroyed)} MW destroyed, the rest cut off</p></div>
+  <div class="demand"><dt>Demand, Nov 2026–Apr 2027</dt><dd>${fmt(demand)} <small>GWh</small></dd><p>within 1% of the GDP-growth path</p></div>
+</dl>
 
 ```js
 const dem = await q(`${DEMAND_MONTHLY} AND month >= '2022-01-01' ORDER BY month`);
 ```
 
-<div class="card">
+## Demand keeps growing, winter included
 
 ```js
 Plot.plot({
-  title: "Monthly national demand (GWh): NEA reports and forecast",
-  width, height: 300, y: {grid: true, label: "GWh / month"}, x: {label: null},
+  width, height: 280, marginLeft: 64, y: {grid: true, label: "Demand (GWh/month)", tickFormat: (d) => d.toLocaleString("en")}, x: {label: null},
   marks: [
-    Plot.lineY(dem, {x: "month", y: "gwh"}),
-    Plot.areaY(fc.filter((d) => d.target === "demand_gwh"), {x: "date", y1: "p10", y2: "p90", fill: "steelblue", fillOpacity: 0.2}),
-    Plot.lineY(fc.filter((d) => d.target === "demand_gwh"), {x: "date", y: "yhat", stroke: "steelblue", marker: "circle", tip: true})
+    Plot.lineY(dem, {x: "month", y: "gwh", stroke: "var(--theme-foreground)", strokeWidth: 1.25, tip: {format: {x: "%b %Y"}}}),
+    Plot.areaY(fc.filter((d) => d.target === "demand_gwh" && d.model === "combo"), {x: "date", y1: "p10", y2: "p90", fill: "var(--nea-demand)", fillOpacity: 0.18}),
+    Plot.lineY(fc.filter((d) => d.target === "demand_gwh" && d.model === "combo"), {x: "date", y: "yhat", stroke: "var(--nea-demand)", strokeWidth: 2.5, tip: {format: {x: "%b %Y"}}})
   ]
 })
 ```
 
-</div>
+<p class="small muted">Thin line: NEA monthly reports. Blue: forecast with P10–P90 band.</p>
 
 ## The story in four points
 
@@ -81,8 +111,11 @@ Plot.plot({
 3. **The August 2026 flood changed the picture.** About 510 MW of hydro and solar was destroyed or cut off, and Kulekhani, the only storage reservoir, is running down. No model can learn this from history, so it is added explicitly from a sourced register ([Map](./map), [Forecast](./forecast)).
 4. **Simple models win here, and we show why.** Ridge regression beats every baseline for daily demand (2.5% error next day, 5–8% at 30 days). LightGBM was tested and lost, which is expected on two winters of data ([Models](./models), [Method](./method)).
 
+```js
+display(await freshness())
+```
+
 <style>
-.big { font-size: 2rem; font-weight: 700; }
-.muted { color: var(--theme-foreground-muted); }
-.small { font-size: 0.85rem; }
+.nea-mirror { max-width: none; margin: 0 0 1rem; }
+.nea-mirror figcaption { font-size: 0.85rem; color: var(--theme-foreground-muted); margin-top: 0.25rem; }
 </style>

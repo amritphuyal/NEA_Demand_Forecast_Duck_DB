@@ -30,7 +30,7 @@ Inputs.table(season, {format: {demand: (x) => x.toFixed(1) + " GWh/day", net_imp
 
 ```js
 Plot.plot({title: "By Nepali month: average demand and net import from India (GWh/day; negative = export)", width, height: 300,
-  fx: {domain: NAMES, label: null, padding: 0.1}, x: {axis: null}, y: {grid: true, label: "GWh/day"}, color: {legend: true},
+  fx: {domain: NAMES, label: null, padding: 0.1}, x: {axis: null}, y: {grid: true, label: "GWh/day"}, color: {legend: true, domain: ["demand", "net import"], range: ["var(--nea-demand)", "var(--nea-import)"]},
   marks: [Plot.ruleY([0]),
     Plot.barY(bsm.flatMap((d) => [{m: NAMES[d.bs_month - 1], k: "demand", v: d.demand}, {m: NAMES[d.bs_month - 1], k: "net import", v: d.net_import}]),
       {fx: "m", x: "k", y: "v", fill: "k", tip: true})]})
@@ -65,12 +65,12 @@ const tc = await q(`SELECT 'Dec–Feb vs Kathmandu night low' AS relation, corr(
 
 ```js
 Plot.plot({title: "Core winter: colder Kathmandu nights → slightly more demand", width: width / 2, height: 280, x: {label: "Kathmandu min °C"}, y: {label: "GWh/day", grid: true},
-  marks: [Plot.dot(temp.filter((d) => d.period.startsWith("core")), {x: "tmin_ktm", y: "demand", r: 2.5, fill: "#1f77b4", tip: true}), Plot.linearRegressionY(temp.filter((d) => d.period.startsWith("core")), {x: "tmin_ktm", y: "demand"})]})
+  marks: [Plot.dot(temp.filter((d) => d.period.startsWith("core")), {x: "tmin_ktm", y: "demand", r: 2.5, fill: "var(--nea-demand)", tip: true}), Plot.linearRegressionY(temp.filter((d) => d.period.startsWith("core")), {x: "tmin_ktm", y: "demand"})]})
 ```
 
 ```js
 Plot.plot({title: "Summer: hotter Terai → more demand (cooling)", width: width / 2, height: 280, x: {label: "Terai mean °C"}, y: {label: "GWh/day", grid: true},
-  marks: [Plot.dot(temp.filter((d) => d.period === "summer"), {x: "tmean_terai", y: "demand", r: 2.5, fill: "#d62728", tip: true}), Plot.linearRegressionY(temp.filter((d) => d.period === "summer"), {x: "tmean_terai", y: "demand"})]})
+  marks: [Plot.dot(temp.filter((d) => d.period === "summer"), {x: "tmean_terai", y: "demand", r: 2.5, fill: "var(--nea-import)", tip: true}), Plot.linearRegressionY(temp.filter((d) => d.period === "summer"), {x: "tmean_terai", y: "demand"})]})
 ```
 
 </div>
@@ -95,12 +95,12 @@ const sc = await q(`SELECT date, discharge_index, (nea_gen_mwh + nea_sub_gen_mwh
 
 ```js
 Plot.plot({title: "River index vs domestic generation (GWh/day)", width: width / 2, height: 280, x: {type: "log", label: "river index (m³/s, 3 basins)"}, y: {grid: true},
-  color: {legend: true}, marks: [Plot.dot(sc, {x: "discharge_index", y: "generation", stroke: "season", r: 2, tip: true})]})
+  color: {legend: true, domain: ["winter", "summer"], range: ["var(--nea-demand)", "#c28a12"]}, marks: [Plot.dot(sc, {x: "discharge_index", y: "generation", stroke: "season", r: 2, tip: true})]})
 ```
 
 ```js
 Plot.plot({title: "Correlation with river flow k days earlier", width: width / 2, height: 280, y: {domain: [-1, 1], grid: true}, x: {label: "lag (days)"},
-  color: {legend: true}, marks: [Plot.ruleY([0]),
+  color: {legend: true, domain: ["generation", "net import"], range: ["var(--nea-river)", "var(--nea-import)"]}, marks: [Plot.ruleY([0]),
     Plot.lineY(lag.flatMap((d) => [{k: d.lag_days, s: "generation", r: d.generation}, {k: d.lag_days, s: "net import", r: d.net_import}]), {x: "k", y: "r", stroke: "s", tip: true})]})
 ```
 

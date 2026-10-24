@@ -21,6 +21,14 @@ DuckLake lake ──nea export──► site/src/data/*.parquet + manifest.json 
 - **DuckDB-WASM is loaded from jsDelivr** (pinned `@duckdb/duckdb-wasm@1.29.0`). Its `.wasm` files are 35–40 MB, over Cloudflare's 25 MiB per-file limit, so the site can't host them itself. Framework's built-in `sql` blocks would bundle them, so the site uses a small client instead (`site/src/components/db.js`).
 - **Read-only by construction.** Queries run in the browser on static files; there is no server, no database connection and no secrets.
 
+## Look
+
+- **Theme:** `site/src/theme.css`, built on Framework's default styles, light and dark (follows the visitor's system setting).
+- **Colours mean something:** glacier teal = rivers and hydro; Nepal-flag crimson = imports and flood losses; flag blue = demand and the shipped model. Baselines are greys. The palette lives in `COLOR` in `components/common.js`.
+- **Type:** Archivo (variable width) for headings, numbers and UI; Source Serif 4 for reading text. Both load from Google Fonts.
+- **Overview hero:** a mirror chart, with river flow rising above a shared baseline and imports from India hanging below it, so "rivers fall, imports rise" is visible at a glance.
+- **Map:** OSM tiles in greyscale (inverted in dark mode) so the data points carry the colour. CARTO basemaps now need an API key, so they aren't used.
+
 ## Pages
 
 | Page | Shows |

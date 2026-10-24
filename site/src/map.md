@@ -32,19 +32,20 @@ const pts = await q(`
   SELECT p.*, w.d AS w_date, w.tmax, w.tmin, r.d AS r_date, r.q, f.anom
   FROM points p LEFT JOIN w ON w.point = p.id LEFT JOIN r ON r.point = p.id LEFT JOIN f ON f.point = p.id`);
 const STYLE = {
-  weather: {color: "#2ca02c", label: "Weather point"},
-  river_basin: {color: "#1f4e9c", label: "River basin outlet (river index)"},
-  river_plant: {color: "#5aa9e6", label: "River at hydropower site"},
-  outage: {color: "#d62728", label: "Flood-damaged plant (approx. location)"}
+  weather: {color: "#c28a12", label: "Weather point"},
+  river_basin: {color: "#0b6b72", label: "River basin outlet (river index)"},
+  river_plant: {color: "#2fb3b9", label: "River at hydropower site"},
+  outage: {color: "#c8102e", label: "Flood-damaged plant (approx. location)"}
 };
 const fmt = (x, d = 0) => x == null ? "–" : x.toLocaleString("en", {maximumFractionDigits: d});
 ```
 
 ```js
 const div = display(document.createElement("div"));
-div.style = "height: 600px; border-radius: 8px;";
+div.style = "height: min(600px, 75vh); border-radius: 10px; border: 1px solid var(--nea-line);";
 const map = L.map(div, {scrollWheelZoom: false}).fitBounds([[26.35, 80.05], [30.45, 88.2]]);  // Nepal
-L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {  // muted by CSS below so the data points carry the colour
   maxZoom: 13, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 }).addTo(map);
 for (const p of pts) {
@@ -54,7 +55,7 @@ for (const p of pts) {
     : p.kind.startsWith("river") ? `Flow ${fmt(p.q)} m³/s on ${p.r_date?.toISOString().slice(0, 10)}<br>Jan–Apr forecast vs normal: <b>${p.anom == null ? "–" : (p.anom > 0 ? "+" : "") + (100 * p.anom).toFixed(0) + "%"}</b>`
     : `${p.detail}<br><i>location approximate</i>`;
   L.circleMarker([p.lat, p.lon], {radius: p.kind === "outage" ? 5 + Math.sqrt(mw) : p.kind === "river_basin" ? 9 : 6,
-    color: s.color, fillColor: s.color, fillOpacity: 0.65, weight: 1})
+    color: dark ? "#0f1a26" : "#ffffff", fillColor: s.color, fillOpacity: 0.8, weight: 1.5})
     .bindPopup(`<b>${p.id}</b><br><span style="color:${s.color}">${s.label}</span><br>${body}`).addTo(map);
 }
 const legend = L.control({position: "bottomright"});
@@ -82,22 +83,27 @@ const series = choice.kind === "weather"
 ```js
 choice.kind === "weather"
   ? Plot.plot({title: `${choice.id}: daily temperature (°C), last 3 years`, width, height: 300, y: {grid: true, label: "°C"},
-      marks: [Plot.lineY(series, {x: "date", y: "tmax_c", stroke: "#d62728", strokeWidth: 0.8}), Plot.lineY(series, {x: "date", y: "tmin_c", stroke: "#1f77b4", strokeWidth: 0.8})]})
+      marks: [Plot.lineY(series, {x: "date", y: "tmax_c", stroke: "var(--nea-import)", strokeWidth: 0.8}), Plot.lineY(series, {x: "date", y: "tmin_c", stroke: "var(--nea-demand)", strokeWidth: 0.8})]})
   : Plot.plot({title: `${choice.id}: river flow (m³/s): observed + GloFAS forecast (band = ensemble p25–p75)`, width, height: 320, y: {grid: true, label: "m³/s", type: "log"},
-      color: {legend: true}, marks: [
-        Plot.areaY(series.filter((d) => d.kind === "forecast"), {x: "date", y1: "p25", y2: "p75", fill: "orange", fillOpacity: 0.25}),
+      color: {legend: true, domain: ["observed", "forecast"], range: ["var(--theme-foreground)", "var(--nea-river)"]}, marks: [
+        Plot.areaY(series.filter((d) => d.kind === "forecast"), {x: "date", y1: "p25", y2: "p75", fill: "var(--nea-river)", fillOpacity: 0.2}),
         Plot.lineY(series, {x: "date", y: "q", stroke: "kind", strokeWidth: 1, tip: true})]})
 ```
 
 ## Flood-damaged plants (register)
 
 ```js
-Inputs.table(await q(`SELECT plant, river, capacity_mw, status, kind, outage_start, expected_return, winter_energy_gwh, note FROM plant_outage ORDER BY capacity_mw DESC`), {rows: 12})
+Inputs.table(await q(`SELECT plant, river, capacity_mw, replace(status, '_', ' ') AS status, outage_start, expected_return, note FROM plant_outage ORDER BY capacity_mw DESC`), {rows: 12, select: false,
+  header: {plant: "Plant", river: "River", capacity_mw: "MW", status: "Status", outage_start: "Out since", expected_return: "Back (expected)", note: "Note"},
+  format: {expected_return: (d) => d ?? "not known"}, width: {plant: 220, note: 320}})
 ```
 
 Sources and how they are used: see [Forecast](./forecast) and [Method](./method).
 
 <style>
-.legend { background: var(--theme-background); padding: 6px 10px; border-radius: 6px; font-size: 12px; line-height: 1.6; }
+.leaflet-tile-pane { filter: grayscale(1) contrast(0.9) brightness(1.04); }
+@media (prefers-color-scheme: dark) { .leaflet-tile-pane { filter: grayscale(1) invert(1) contrast(0.85) brightness(0.8); } }
+.leaflet-container { background: var(--theme-background-alt); }
+.legend { background: var(--theme-background); color: var(--theme-foreground); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--nea-line); font: 12px/1.7 var(--sans-serif); }
 .legend span { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
 </style>

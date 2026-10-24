@@ -29,7 +29,8 @@ Latest run: **${run}**. Monthly figures are in GWh.
 ```js
 Inputs.table(pivot, {format: {month: (d) => d.toLocaleString("en", {month: "short", year: "numeric", timeZone: "UTC"}),
   demand: (x) => x?.toFixed(0), import_models_only: (x) => x?.toFixed(0), import_with_flood: (x) => x?.toFixed(0)},
-  header: {demand_range: "demand P10–P90", import_models_only: "import, models only", import_with_flood: "import with flood losses", import_range: "import P10–P90 (with flood)"}})
+  header: {month: "Month", demand: "Demand", demand_range: "Demand P10–P90", import_models_only: "Import, models only", import_with_flood: "Import with flood losses", import_range: "Import P10–P90"},
+  layout: "auto", select: false})
 ```
 
 **Read the "import with flood losses" column.** It adds the generation lost in the 26 Aug 2026 flood; the models alone can't know about it. In November the loss only cuts exports (Nepal usually exports about 490 GWh that month). From January, every lost GWh becomes import.
@@ -54,15 +55,15 @@ const anom = await q(`
 <div class="grid grid-cols-2">
 
 ```js
-Plot.plot({title: "River index (3 basins), m³/s: forecast vs 2010–2022 normal", width: width / 2, height: 280, y: {grid: true, type: "log"}, color: {legend: true},
-  marks: [Plot.areaY(rf, {x: "date", y1: "p25", y2: "p75", fill: "orange", fillOpacity: 0.25}),
+Plot.plot({title: "River index (3 basins), m³/s: forecast vs 2010–2022 normal", width: width / 2, height: 280, y: {grid: true, type: "log"}, color: {legend: true, domain: ["forecast (ensemble mean)", "normal"], range: ["var(--nea-river)", "var(--theme-foreground-muted)"]},
+  marks: [Plot.areaY(rf, {x: "date", y1: "p25", y2: "p75", fill: "var(--nea-river)", fillOpacity: 0.25}),
     Plot.lineY(rf, {x: "date", y: "normal", stroke: () => "normal", strokeDasharray: "4"}), Plot.lineY(rf, {x: "date", y: "mean", stroke: () => "forecast (ensemble mean)", tip: true})]})
 ```
 
 ```js
 Plot.plot({title: "Monthly flow vs normal (%)", width: width / 2, height: 280, y: {grid: true, label: "%"},
   x: {label: null, domain: anom.map((d) => d.month.toLocaleString("en", {month: "short", year: "2-digit", timeZone: "UTC"}))},
-  marks: [Plot.barY(anom, {x: (d) => d.month.toLocaleString("en", {month: "short", year: "2-digit", timeZone: "UTC"}), y: "pct", fill: (d) => d.pct < 0 ? "#d62728" : "#1f77b4", tip: true}), Plot.ruleY([0])]})
+  marks: [Plot.barY(anom, {x: (d) => d.month.toLocaleString("en", {month: "short", year: "2-digit", timeZone: "UTC"}), y: "pct", fill: (d) => d.pct < 0 ? "var(--nea-import)" : "var(--nea-demand)", tip: true}), Plot.ruleY([0])]})
 ```
 
 </div>
@@ -72,8 +73,11 @@ A drier late winter means less run-of-river output from January, which adds to t
 ## Flood losses used in the forecast
 
 ```js
-const out = await q(`SELECT plant, capacity_mw, status, kind, expected_return, winter_energy_gwh, note, source_url FROM plant_outage ORDER BY capacity_mw DESC`);
-display(Inputs.table(out, {rows: 12, format: {source_url: (s) => htl.html`${s.split(" ").map((u, i) => htl.html`<a href=${u} target=_blank>[${i + 1}]</a> `)}`}}))
+const out = await q(`SELECT plant, capacity_mw, replace(status, '_', ' ') AS status, expected_return, winter_energy_gwh, note, source_url FROM plant_outage ORDER BY capacity_mw DESC`);
+display(Inputs.table(out, {rows: 12, select: false,
+  header: {plant: "Plant", capacity_mw: "MW", status: "Status", expected_return: "Back (expected)", winter_energy_gwh: "Storage lost (GWh)", note: "Note", source_url: "Sources"},
+  format: {expected_return: (d) => d ?? "not known", winter_energy_gwh: (x) => x ?? "", source_url: (s) => htl.html`${s.split(" ").map((u, i) => htl.html`<a href=${u} target=_blank>[${i + 1}]</a> `)}`},
+  width: {plant: 220, note: 300}}))
 ```
 
 - **Lost generation per month** = MW × 0.35 (the dry-season output of run-of-river plants) × hours, plus Kulekhani's reduced storage (about 22 GWh, spread over Jan–Apr).

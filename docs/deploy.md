@@ -16,11 +16,12 @@ Run from the repository root.
 | work on the site, live reload | `cd site && npm run dev` → http://127.0.0.1:3000 |
 | check the production build locally | `cd site && npm run build && npm run preview` → http://127.0.0.1:8788 |
 | publish to Cloudflare | `cd site && npm run deploy` |
-| fetch new data, forecast and publish (the daily routine) | `uv run nea ingest all && uv run nea forecast && uv run nea export && (cd site && npm run deploy)` |
+| fetch new data, forecast and publish (the daily routine) | `uv run nea ingest all && uv run nea forecast && (cd site && npm run deploy)` |
 
-- `npm run deploy` builds, then uploads `site/dist/` as the **production** deployment, so both URLs update within seconds.
+- `npm run deploy` exports the lake (`nea export`), builds, then uploads `site/dist/` as the **production** deployment, so both URLs update within seconds.
 - `npm run preview` serves `dist/` the way Cloudflare does (clean URLs like `/map`). Stop it with `Ctrl+C`.
 - First time on a new machine: `cd site && npm install`.
+- `site/src/data/` (the Parquet snapshot) is not in git; it is rebuilt by `uv run nea export`, so run `uv run nea export` before `npm run dev` / `npm run build` (`npm run deploy` does it for you). Local databases, caches and logs (`*.sqlite`, `.wrangler/`, `.observablehq/cache/`, `*.log`) are ignored for the same reason: they change every run.
 
 ## First publish (2026-10-26): the steps actually followed
 

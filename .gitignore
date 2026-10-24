@@ -11,4 +11,13 @@ wheels/
 
 # Data (raw downloads + lakehouse)
 data/
-!site/src/data/
+
+# Generated every run: never commit (they change each build and bloat history)
+*.sqlite
+*.sqlite-*
+*.duckdb
+*.duckdb.wal
+*.wal
+*.log
+.wrangler/
+.observablehq/cache/

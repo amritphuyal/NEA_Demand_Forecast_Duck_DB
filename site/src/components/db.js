@@ -1,7 +1,7 @@
 // One in-browser DuckDB over the Parquet snapshot exported from the lake (`nea export`).
 // DuckDB-WASM comes from jsDelivr: its .wasm files (35-40 MB) exceed Cloudflare's 25 MiB per-file limit,
 // so self-hosting (Framework's built-in DuckDBClient) can't deploy. Version pinned.
-import * as duckdb from "https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.29.0/+esm";
+import * as duckdb from "https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.32.0/+esm";
 import {FileAttachment} from "observablehq:stdlib";
 
 // static FileAttachment calls: Framework copies (and fingerprints) exactly these files into the site

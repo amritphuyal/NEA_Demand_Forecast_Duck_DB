@@ -18,7 +18,7 @@ DuckLake lake ──nea export──► site/src/data/*.parquet + manifest.json 
 ```
 
 - **One source of truth.** Every chart is a SQL query on the exported Parquet snapshot of the lake. Nothing is copied by hand into JSON, and the narrative text quotes numbers produced by `nea model` / `nea forecast`.
-- **DuckDB-WASM is loaded from jsDelivr** (pinned `@duckdb/duckdb-wasm@1.29.0`). Its `.wasm` files are 35–40 MB, over Cloudflare's 25 MiB per-file limit, so the site can't host them itself. Framework's built-in `sql` blocks would bundle them, so the site uses a small client instead (`site/src/components/db.js`).
+- **DuckDB-WASM is loaded from jsDelivr** (pinned `@duckdb/duckdb-wasm@1.32.0`, engine v1.4.3). Its `.wasm` files are 35–40 MB, over Cloudflare's 25 MiB per-file limit, so the site can't host them itself. Framework's built-in `sql` blocks would bundle them, so the site uses a small client instead (`site/src/components/db.js`).
 - **Read-only by construction.** Queries run in the browser on static files; there is no server, no database connection and no secrets.
 
 ## Look

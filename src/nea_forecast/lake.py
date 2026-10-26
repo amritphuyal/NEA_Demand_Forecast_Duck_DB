@@ -21,8 +21,10 @@ def connect(root: Path = Path("data"), read_only: bool = False) -> duckdb.DuckDB
     return con
 
 
-def upsert(con: duckdb.DuckDBPyConnection, table: str, rows: list[dict], key: tuple[str, ...]) -> int:
-    """Replace rows with matching key (DuckLake has no PK): delete + insert in one transaction."""
+def upsert(con: duckdb.DuckDBPyConnection, table: str, rows: list[dict], key: tuple[str, ...],
+           replace_all: bool = False) -> int:
+    """Replace rows with matching key (DuckLake has no PK): delete + insert in one transaction.
+    replace_all: delete every row instead (full refresh), still in that one transaction."""
     rows = list({tuple(r[k] for k in key): r for r in rows}.values())  # last wins within batch
     if not rows:
         return 0
@@ -35,7 +37,8 @@ def upsert(con: duckdb.DuckDBPyConnection, table: str, rows: list[dict], key: tu
     match = " AND ".join(f"s.{k} = t.{k}" for k in key)
     con.execute("BEGIN")
     try:
-        con.execute(f"DELETE FROM {table} t WHERE EXISTS (SELECT 1 FROM _stage s WHERE {match})")
+        where = "" if replace_all else f"WHERE EXISTS (SELECT 1 FROM _stage s WHERE {match})"
+        con.execute(f"DELETE FROM {table} t {where}")
         con.execute(f"INSERT INTO {table} ({col_list}) SELECT {col_list} FROM _stage")
         con.execute("COMMIT")
     except Exception:

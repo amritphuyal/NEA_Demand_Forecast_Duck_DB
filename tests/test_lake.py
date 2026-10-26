@@ -25,6 +25,16 @@ def test_upsert_dedupes_within_batch(tmp_path):
     assert con.execute("select tmax_c from silver.weather_daily").fetchone() == (11.0,)
 
 
+def test_upsert_replace_all_is_one_snapshot(tmp_path):
+    con = connect(tmp_path)
+    r = {"date": date(2025, 1, 1), "point": "ktm", "tmax_c": 10.0, "tmin_c": 1.0, "precip_mm": 0.0}
+    upsert(con, "silver.weather_daily", [r, {**r, "point": "bir"}], ("date", "point"))
+    before = con.execute("select max(snapshot_id) from ducklake_snapshots('lake')").fetchone()[0]
+    upsert(con, "silver.weather_daily", [{**r, "tmax_c": 12.0}], ("date", "point"), replace_all=True)
+    assert con.execute("select max(snapshot_id) from ducklake_snapshots('lake')").fetchone()[0] == before + 1
+    assert con.execute("select point, tmax_c from silver.weather_daily").fetchall() == [("ktm", 12.0)]
+
+
 def test_seen_only_ok_and_not_found(tmp_path):
     con = connect(tmp_path)
     log(con, "nea_ndor", "a", "u", "ok")

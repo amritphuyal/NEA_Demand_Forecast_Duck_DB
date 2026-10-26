@@ -55,13 +55,13 @@ const anom = await q(`
 <div class="grid grid-cols-2">
 
 ```js
-Plot.plot({title: "River index (3 basins), m³/s: forecast vs 2010–2022 normal", width: width / 2, height: 280, y: {grid: true, type: "log"}, color: {legend: true, domain: ["forecast (ensemble mean)", "normal"], range: ["var(--nea-river)", "var(--theme-foreground-muted)"]},
+Plot.plot({title: "River index (3 basins), m³/s: forecast vs 2010–2022 normal", width: width < 640 ? width : width / 2 - 8, height: 280, y: {grid: true, type: "log"}, color: {legend: true, domain: ["forecast (ensemble mean)", "normal"], range: ["var(--nea-river)", "var(--theme-foreground-muted)"]},
   marks: [Plot.areaY(rf, {x: "date", y1: "p25", y2: "p75", fill: "var(--nea-river)", fillOpacity: 0.25}),
     Plot.lineY(rf, {x: "date", y: "normal", stroke: () => "normal", strokeDasharray: "4"}), Plot.lineY(rf, {x: "date", y: "mean", stroke: () => "forecast (ensemble mean)", tip: true})]})
 ```
 
 ```js
-Plot.plot({title: "Monthly flow vs normal (%)", width: width / 2, height: 280, y: {grid: true, label: "%"},
+Plot.plot({title: "Monthly flow vs normal (%)", width: width < 640 ? width : width / 2 - 8, height: 280, y: {grid: true, label: "%"},
   x: {label: null, domain: anom.map((d) => d.month.toLocaleString("en", {month: "short", year: "2-digit", timeZone: "UTC"}))},
   marks: [Plot.barY(anom, {x: (d) => d.month.toLocaleString("en", {month: "short", year: "2-digit", timeZone: "UTC"}), y: "pct", fill: (d) => d.pct < 0 ? "var(--nea-import)" : "var(--nea-demand)", tip: true}), Plot.ruleY([0])]})
 ```

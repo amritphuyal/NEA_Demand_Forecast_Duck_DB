@@ -88,12 +88,12 @@ const ann = await q(`SELECT year, total_gwh, national_peak_mw, import_gwh, 100 *
 <div class="grid grid-cols-2">
 
 ```js
-Plot.plot({title: "Annual energy (GWh)", width: width / 2, height: 260, y: {grid: true}, x: {tickFormat: (y) => y % 2 ? "" : y, label: null},
+Plot.plot({title: "Annual energy (GWh)", width: width < 640 ? width : width / 2 - 8, height: 260, y: {grid: true}, x: {tickFormat: (y) => y % 2 ? "" : y, label: null},
   marks: [Plot.barY(ann, {x: "year", y: "total_gwh", fill: "var(--nea-demand)", tip: true})]})
 ```
 
 ```js
-Plot.plot({title: "Import from India, % of annual energy", width: width / 2, height: 260, y: {grid: true}, x: {tickFormat: (y) => y % 2 ? "" : y, label: null},
+Plot.plot({title: "Import from India, % of annual energy", width: width < 640 ? width : width / 2 - 8, height: 260, y: {grid: true}, x: {tickFormat: (y) => y % 2 ? "" : y, label: null},
   marks: [Plot.barY(ann, {x: "year", y: "import_share", fill: "var(--nea-import)", tip: true})]})
 ```
 

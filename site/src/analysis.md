@@ -64,12 +64,12 @@ const tc = await q(`SELECT 'Dec–Feb vs Kathmandu night low' AS relation, corr(
 <div class="grid grid-cols-2">
 
 ```js
-Plot.plot({title: "Core winter: colder Kathmandu nights → slightly more demand", width: width / 2, height: 280, x: {label: "Kathmandu min °C"}, y: {label: "GWh/day", grid: true},
+Plot.plot({title: "Core winter: colder Kathmandu nights → slightly more demand", width: width < 640 ? width : width / 2 - 8, height: 280, x: {label: "Kathmandu min °C"}, y: {label: "GWh/day", grid: true},
   marks: [Plot.dot(temp.filter((d) => d.period.startsWith("core")), {x: "tmin_ktm", y: "demand", r: 2.5, fill: "var(--nea-demand)", tip: true}), Plot.linearRegressionY(temp.filter((d) => d.period.startsWith("core")), {x: "tmin_ktm", y: "demand"})]})
 ```
 
 ```js
-Plot.plot({title: "Summer: hotter Terai → more demand (cooling)", width: width / 2, height: 280, x: {label: "Terai mean °C"}, y: {label: "GWh/day", grid: true},
+Plot.plot({title: "Summer: hotter Terai → more demand (cooling)", width: width < 640 ? width : width / 2 - 8, height: 280, x: {label: "Terai mean °C"}, y: {label: "GWh/day", grid: true},
   marks: [Plot.dot(temp.filter((d) => d.period === "summer"), {x: "tmean_terai", y: "demand", r: 2.5, fill: "var(--nea-import)", tip: true}), Plot.linearRegressionY(temp.filter((d) => d.period === "summer"), {x: "tmean_terai", y: "demand"})]})
 ```
 
@@ -94,12 +94,12 @@ const sc = await q(`SELECT date, discharge_index, (nea_gen_mwh + nea_sub_gen_mwh
 <div class="grid grid-cols-2">
 
 ```js
-Plot.plot({title: "River index vs domestic generation (GWh/day)", width: width / 2, height: 280, x: {type: "log", label: "river index (m³/s, 3 basins)"}, y: {grid: true},
+Plot.plot({title: "River index vs domestic generation (GWh/day)", width: width < 640 ? width : width / 2 - 8, height: 280, x: {type: "log", label: "river index (m³/s, 3 basins)"}, y: {grid: true},
   color: {legend: true, domain: ["winter", "summer"], range: ["var(--nea-demand)", "#c28a12"]}, marks: [Plot.dot(sc, {x: "discharge_index", y: "generation", stroke: "season", r: 2, tip: true})]})
 ```
 
 ```js
-Plot.plot({title: "Correlation with river flow k days earlier", width: width / 2, height: 280, y: {domain: [-1, 1], grid: true}, x: {label: "lag (days)"},
+Plot.plot({title: "Correlation with river flow k days earlier", width: width < 640 ? width : width / 2 - 8, height: 280, y: {domain: [-1, 1], grid: true}, x: {label: "lag (days)"},
   color: {legend: true, domain: ["generation", "net import"], range: ["var(--nea-river)", "var(--nea-import)"]}, marks: [Plot.ruleY([0]),
     Plot.lineY(lag.flatMap((d) => [{k: d.lag_days, s: "generation", r: d.generation}, {k: d.lag_days, s: "net import", r: d.net_import}]), {x: "k", y: "r", stroke: "s", tip: true})]})
 ```

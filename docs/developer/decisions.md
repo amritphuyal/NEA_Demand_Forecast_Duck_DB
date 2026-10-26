@@ -100,3 +100,10 @@ Architecture decisions (ADR) + change log. Every repo change appends a change-lo
 - **2026-10-26** — Generated files out of git: repo-wide ignore for `*.sqlite*`, `*.duckdb`, `*.wal`, `*.log`, `.wrangler/` (miniflare `metadata.sqlite` from `npm run preview`), `.observablehq/cache/`. The site snapshot `site/src/data/` is no longer committed (each export rewrote ~0.8 MB of Parquet); run `uv run nea export` before `npm run build`. A fresh clone therefore needs the lake to build the site.
 - **2026-10-26** — Site redesign: own theme (`theme.css`) replaces stock air/near-midnight. The colours carry meaning (teal rivers, crimson imports/flood, blue demand/shipped model, grey baselines; shared `COLOR` map). Archivo + Source Serif 4. Overview hero is a mirror chart (rivers up, imports down). The SaaS KPI cards became a figure strip. Readable table headers. Map uses greyscale OSM tiles, because CARTO basemaps now require an API key. Checked light/dark and 1400/390 px in Playwright: no errors, no horizontal scroll.
 - **2026-10-26** — MIT LICENSE added (code only; data keeps its publishers' terms). Plans moved to `docs/plans/`; tool-workflow notes removed from the plans and code comments.
+- **2026-10-26** — `nea ingest` exits 0 when some sources fail (each failure still logged, plus a "partial ingest" line); 1 only if every source fails. So `ingest all && forecast && deploy` keeps going while DHM is down.
+- **2026-10-26** — Site UX:
+  - Tables show full values (auto layout, wrapping, horizontal scroll).
+  - ⤢ enlarge/fullscreen on charts and the map.
+  - Half-width charts go full width under 640 px.
+  - The snapshot is cached in browser Cache Storage, and `_headers` gives hashed assets a 1-year immutable cache (Cloudflare served `max-age=0` before).
+  - Tested in Playwright: 20 parquet fetches on first load, 0 on reload and on page switch. Enlarge opens/closes on index/map/models. All 9 pages fit 390 px with no errors.

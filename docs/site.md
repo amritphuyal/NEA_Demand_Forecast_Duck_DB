@@ -27,6 +27,13 @@ DuckLake lake ──nea export──► site/src/data/*.parquet + manifest.json 
 - **Colours mean something:** glacier teal = rivers and hydro; Nepal-flag crimson = imports and flood losses; flag blue = demand and the shipped model. Baselines are greys. The palette lives in `COLOR` in `components/common.js`.
 - **Type:** Archivo (variable width) for headings, numbers and UI; Source Serif 4 for reading text. Both load from Google Fonts.
 - **Overview hero:** a mirror chart, with river flow rising above a shared baseline and imports from India hanging below it, so "rivers fall, imports rise" is visible at a glance.
+- **Tables:** full values. Columns fit their content, long text wraps, wide tables scroll sideways, and the header stays pinned when scrolling down.
+- **Enlarge:** every chart, the map and the overview figure have a ⤢ button. It uses real fullscreen where the browser supports it, otherwise a full-page overlay (iPhone Safari). Esc or ✕ closes it. The script is `ZOOM` in `observablehq.config.js`.
+- **Phones:** side-by-side charts stack to full width under 640 px. Checked at 390 px: no sideways page scroll on any page.
+- **Caching:**
+  - The Parquet snapshot is stored in the browser's Cache Storage (`nea-snapshot`) on the first visit. Reloads and page switches then load data with zero network requests.
+  - File names carry a content hash, so a new export is fetched fresh and old entries are dropped.
+  - `site/_headers`, copied into `dist` by `npm run build`, makes Cloudflare serve every hashed asset with `Cache-Control: immutable` for a year. HTML still revalidates.
 - **Map:** OSM tiles in greyscale (inverted in dark mode) so the data points carry the colour. CARTO basemaps now need an API key, so they aren't used.
 
 ## Pages

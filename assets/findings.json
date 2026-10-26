@@ -1,0 +1,301 @@
+{
+  "f1_export_vs_winter_import": {
+    "sql": "queries/f1_export_vs_winter_import.sql",
+    "rows": [
+      {
+        "fy": "2079/80",
+        "months": 12,
+        "export_gwh_year": 1333.0,
+        "import_gwh_poush_chaitra": 1168.0,
+        "import_gwh_year": 1855.0,
+        "demand_gwh_year": 11547.0
+      },
+      {
+        "fy": "2080/81",
+        "months": 12,
+        "export_gwh_year": 1942.0,
+        "import_gwh_poush_chaitra": 1231.0,
+        "import_gwh_year": 1834.0,
+        "demand_gwh_year": 12682.0
+      },
+      {
+        "fy": "2081/82",
+        "months": 12,
+        "export_gwh_year": 2381.0,
+        "import_gwh_poush_chaitra": 1187.0,
+        "import_gwh_year": 1710.0,
+        "demand_gwh_year": 14065.0
+      },
+      {
+        "fy": "2082/83",
+        "months": 12,
+        "export_gwh_year": 3939.0,
+        "import_gwh_poush_chaitra": 913.0,
+        "import_gwh_year": 1122.0,
+        "demand_gwh_year": 15140.0
+      }
+    ]
+  },
+  "f2_gen_vs_demand_monthly": {
+    "sql": "queries/f2_gen_vs_demand_monthly.sql",
+    "rows": [
+      {
+        "month": "2023-04-01",
+        "days": 17,
+        "demand_gwh_per_day": 34.8,
+        "domestic_gen_gwh_per_day": 19.5,
+        "import_gwh_per_day": 13.3,
+        "export_gwh_per_day": 0.0,
+        "domestic_gen_pct_of_demand": 56.0
+      },
+      {
+        "month": "2023-05-01",
+        "days": 31,
+        "demand_gwh_per_day": 35.0,
+        "domestic_gen_gwh_per_day": 25.2,
+        "import_gwh_per_day": 8.7,
+        "export_gwh_per_day": 0.0,
+        "domestic_gen_pct_of_demand": 72.0
+      },
+      {
+        "month": "2023-06-01",
+        "days": 30,
+        "demand_gwh_per_day": 39.6,
+        "domestic_gen_gwh_per_day": 38.8,
+        "import_gwh_per_day": 3.6,
+        "export_gwh_per_day": 3.8,
+        "domestic_gen_pct_of_demand": 98.0
+      },
+      {
+        "month": "2023-07-01",
+        "days": 31,
+        "demand_gwh_per_day": 38.5,
+        "domestic_gen_gwh_per_day": 45.6,
+        "import_gwh_per_day": 0.6,
+        "export_gwh_per_day": 8.0,
+        "domestic_gen_pct_of_demand": 119.0
+      },
+      {
+        "month": "2023-08-01",
+        "days": 31,
+        "demand_gwh_per_day": 37.1,
+        "domestic_gen_gwh_per_day": 46.8,
+        "import_gwh_per_day": 0.0,
+        "export_gwh_per_day": 9.8,
+        "domestic_gen_pct_of_demand": 126.0
+      },
+      {
+        "month": "2023-09-01",
+        "days": 12,
+        "demand_gwh_per_day": 35.8,
+        "domestic_gen_gwh_per_day": 47.5,
+        "import_gwh_per_day": 0.0,
+        "export_gwh_per_day": 11.8,
+        "domestic_gen_pct_of_demand": 133.0
+      },
+      {
+        "month": "2023-10-01",
+        "days": 31,
+        "demand_gwh_per_day": 30.6,
+        "domestic_gen_gwh_per_day": 45.6,
+        "import_gwh_per_day": 0.0,
+        "export_gwh_per_day": 15.0,
+        "domestic_gen_pct_of_demand": 149.0
+      },
+      {
+        "month": "2023-11-01",
+        "days": 28,
+        "demand_gwh_per_day": 27.1,
+        "domestic_gen_gwh_per_day": 36.0,
+        "import_gwh_per_day": 0.0,
+        "export_gwh_per_day": 9.0,
+        "domestic_gen_pct_of_demand": 133.0
+      },
+      {
+        "month": "2023-12-01",
+        "days": 29,
+        "demand_gwh_per_day": 30.6,
+        "domestic_gen_gwh_per_day": 27.7,
+        "import_gwh_per_day": 3.1,
+        "export_gwh_per_day": 0.4,
+        "domestic_gen_pct_of_demand": 91.0
+      },
+      {
+        "month": "2024-01-01",
+        "days": 31,
+        "demand_gwh_per_day": 32.4,
+        "domestic_gen_gwh_per_day": 22.2,
+        "import_gwh_per_day": 8.9,
+        "export_gwh_per_day": 0.0,
+        "domestic_gen_pct_of_demand": 69.0
+      },
+      {
+        "month": "2024-02-01",
+        "days": 28,
+        "demand_gwh_per_day": 33.5,
+        "domestic_gen_gwh_per_day": 18.6,
+        "import_gwh_per_day": 12.9,
+        "export_gwh_per_day": 0.0,
+        "domestic_gen_pct_of_demand": 56.0
+      },
+      {
+        "month": "2024-03-01",
+        "days": 31,
+        "demand_gwh_per_day": 31.6,
+        "domestic_gen_gwh_per_day": 18.0,
+        "import_gwh_per_day": 12.6,
+        "export_gwh_per_day": 0.0,
+        "domestic_gen_pct_of_demand": 57.0
+      },
+      {
+        "month": "2024-04-01",
+        "days": 30,
+        "demand_gwh_per_day": 37.8,
+        "domestic_gen_gwh_per_day": 22.6,
+        "import_gwh_per_day": 11.8,
+        "export_gwh_per_day": 0.0,
+        "domestic_gen_pct_of_demand": 60.0
+      },
+      {
+        "month": "2024-05-01",
+        "days": 31,
+        "demand_gwh_per_day": 39.8,
+        "domestic_gen_gwh_per_day": 28.7,
+        "import_gwh_per_day": 9.4,
+        "export_gwh_per_day": 0.7,
+        "domestic_gen_pct_of_demand": 72.0
+      },
+      {
+        "month": "2024-06-01",
+        "days": 30,
+        "demand_gwh_per_day": 42.2,
+        "domestic_gen_gwh_per_day": 45.2,
+        "import_gwh_per_day": 2.4,
+        "export_gwh_per_day": 6.8,
+        "domestic_gen_pct_of_demand": 107.0
+      },
+      {
+        "month": "2024-07-01",
+        "days": 31,
+        "demand_gwh_per_day": 39.6,
+        "domestic_gen_gwh_per_day": 54.9,
+        "import_gwh_per_day": 0.0,
+        "export_gwh_per_day": 15.5,
+        "domestic_gen_pct_of_demand": 139.0
+      },
+      {
+        "month": "2024-08-01",
+        "days": 26,
+        "demand_gwh_per_day": 41.1,
+        "domestic_gen_gwh_per_day": 57.6,
+        "import_gwh_per_day": 0.0,
+        "export_gwh_per_day": 16.7,
+        "domestic_gen_pct_of_demand": 140.0
+      },
+      {
+        "month": "2024-09-01",
+        "days": 28,
+        "demand_gwh_per_day": 41.8,
+        "domestic_gen_gwh_per_day": 57.9,
+        "import_gwh_per_day": 0.2,
+        "export_gwh_per_day": 16.7,
+        "domestic_gen_pct_of_demand": 139.0
+      },
+      {
+        "month": "2024-10-01",
+        "days": 31,
+        "demand_gwh_per_day": 35.1,
+        "domestic_gen_gwh_per_day": 44.2,
+        "import_gwh_per_day": 0.0,
+        "export_gwh_per_day": 9.2,
+        "domestic_gen_pct_of_demand": 126.0
+      },
+      {
+        "month": "2024-11-01",
+        "days": 29,
+        "demand_gwh_per_day": 31.4,
+        "domestic_gen_gwh_per_day": 38.3,
+        "import_gwh_per_day": 0.0,
+        "export_gwh_per_day": 7.1,
+        "domestic_gen_pct_of_demand": 122.0
+      },
+      {
+        "month": "2024-12-01",
+        "days": 31,
+        "demand_gwh_per_day": 35.3,
+        "domestic_gen_gwh_per_day": 30.2,
+        "import_gwh_per_day": 3.6,
+        "export_gwh_per_day": 0.2,
+        "domestic_gen_pct_of_demand": 86.0
+      },
+      {
+        "month": "2025-01-01",
+        "days": 11,
+        "demand_gwh_per_day": 36.7,
+        "domestic_gen_gwh_per_day": 28.4,
+        "import_gwh_per_day": 6.8,
+        "export_gwh_per_day": 0.0,
+        "domestic_gen_pct_of_demand": 77.0
+      }
+    ]
+  },
+  "f3_evening_peak_by_season": {
+    "sql": "queries/f3_evening_peak_by_season.sql",
+    "rows": [
+      {
+        "season": "winter",
+        "days": 265,
+        "peak_demand_mw": 1775.0,
+        "domestic_mw": 1370.0,
+        "import_mw": 225.0,
+        "not_supplied_mw": 180.0,
+        "import_pct_of_peak": 12.3,
+        "not_supplied_pct_of_peak": 9.7
+      },
+      {
+        "season": "summer",
+        "days": 343,
+        "peak_demand_mw": 1814.0,
+        "domestic_mw": 1669.0,
+        "import_mw": 68.0,
+        "not_supplied_mw": 77.0,
+        "import_pct_of_peak": 3.8,
+        "not_supplied_pct_of_peak": 4.1
+      }
+    ]
+  },
+  "f4_peak_hour": {
+    "sql": "queries/f4_peak_hour.sql",
+    "rows": [
+      {
+        "peak_hour": 17,
+        "days": 110
+      },
+      {
+        "peak_hour": 18,
+        "days": 209
+      },
+      {
+        "peak_hour": 19,
+        "days": 289
+      }
+    ]
+  },
+  "f5_interruption_by_season": {
+    "sql": "queries/f5_interruption_by_season.sql",
+    "rows": [
+      {
+        "season": "winter",
+        "days": 265,
+        "interruption_gwh_per_day": 1.3,
+        "interruption_gwh_total": 344.0
+      },
+      {
+        "season": "summer",
+        "days": 343,
+        "interruption_gwh_per_day": 0.65,
+        "interruption_gwh_total": 222.0
+      }
+    ]
+  }
+}

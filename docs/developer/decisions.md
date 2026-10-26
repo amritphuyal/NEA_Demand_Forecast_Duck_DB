@@ -107,3 +107,4 @@ Architecture decisions (ADR) + change log. Every repo change appends a change-lo
   - Half-width charts go full width under 640 px.
   - The snapshot is cached in browser Cache Storage, and `_headers` gives hashed assets a 1-year immutable cache (Cloudflare served `max-age=0` before).
   - Tested in Playwright: 20 parquet fetches on first load, 0 on reload and on page switch. Enlarge opens/closes on index/map/models. All 9 pages fit 390 px with no errors.
+- **2026-10-26** — Headline findings: `queries/f1–f5.sql` + `nea findings` → `assets/findings.json` + three 1920x1080 charts (README and video). Finding 1 uses only complete fiscal years: FY 2078/79 lacks Falgun in the parsed balance table. README rewritten for evaluators (problem, findings linked to queries, sources, reproduce, provenance and cleaning, limitations, next steps). Day count corrected to 608 QA days (612 parsed) on the site and in the model docs.

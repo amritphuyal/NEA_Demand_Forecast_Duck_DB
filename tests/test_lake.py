@@ -55,3 +55,14 @@ def test_reader_works_while_writer_connected(tmp_path):
     log(w, "s", "k", "u", "ok")
     r = connect(tmp_path, read_only=True)  # DuckDB-file catalog would raise a lock error here
     assert seen(r, "s") == {"k"}
+
+
+def test_reader_sees_committed_data_during_open_write(tmp_path):
+    w = connect(tmp_path)
+    log(w, "s", "a", "u", "ok")
+    w.execute("BEGIN")
+    w.execute("INSERT INTO bronze.ingest_log (source, key, status) VALUES ('s', 'b', 'ok')")
+    r = connect(tmp_path, read_only=True)
+    assert seen(r, "s") == {"a"}  # committed row only, and no lock wait
+    w.execute("COMMIT")
+    assert seen(r, "s") == {"a", "b"}

@@ -15,7 +15,7 @@ One page that explains and defends **what** we forecast, **with which models**, 
 
 ## 2. Why this ladder and not deep learning
 
-1. **Data size.** We have 612 daily points (two winters), 53 monthly points and 14 annual points. Deep learning needs far more. On a Nepal national peak-load series, LSTM beat a 30-day moving average by 0.05 MAPE points [lit 3]. Tree models and even linear models beat deep networks on tabular data of this size [lit 27, 28].
+1. **Data size.** We have 608 usable daily points (two winters), 53 monthly points and 14 annual points. Deep learning needs far more. On a Nepal national peak-load series, LSTM beat a 30-day moving average by 0.05 MAPE points [lit 3]. Tree models and even linear models beat deep networks on tabular data of this size [lit 27, 28].
 2. **What wins in load forecasting.** Regression with temperature, calendar and trend is in every winning GEFCom entry, and the "vanilla benchmark" is exactly that [lit 19–22]. Our ridge model is that benchmark adapted to Nepal (two temperature regions, holidays, river discharge).
 3. **Climb, then stop.** Each step must beat the one below it on **winter** error by more than 5% **and** pass a Diebold–Mariano test (p < 0.10). Otherwise the simpler model is used. That makes the choice of a complex model something the data has to prove; it isn't assumed.
 4. **Laptop.** The full backtest (5 targets × 4 horizons × 5 models × 2 weather modes + monthly) runs in about 75 s on CPU; the live forecast in about 3 s. Dependencies: numpy, statsmodels (ETS) and lightgbm (challenger only; no live forecast uses it).

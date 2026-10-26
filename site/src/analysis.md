@@ -13,7 +13,7 @@ import {freshness} from "./components/common.js";
 display(await freshness())
 ```
 
-Daily figures use the 612 checked NEA daily reports (Apr 2023 – Jan 2025); all-zero report days are excluded. Every number below is computed live from the data.
+Daily figures use the 608 days of NEA daily reports (Apr 2023 – Jan 2025) that pass the energy-balance check. 612 reports were parsed; 4 all-zero days are excluded. Every number below is computed live from the data.
 
 ## 1. Seasonality: winter imports are a supply problem
 

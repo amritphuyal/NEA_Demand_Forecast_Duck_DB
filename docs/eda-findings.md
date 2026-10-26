@@ -1,6 +1,6 @@
 # EDA findings (Phase 2)
 
-Source: `uv run nea eda` on 2026-10-25 → [`eda/summary.json`](eda/summary.json) + charts in [`eda/`](eda/). Log: `data/logs/*-eda.log`. Daily stats use NDOR `qa_ok` days (612, 2023-04-14 → 2025-01-11).
+Source: `uv run nea eda` on 2026-10-25 → [`eda/summary.json`](eda/summary.json) + charts in [`eda/`](eda/). Log: `data/logs/*-eda.log`. Daily stats use NDOR `qa_ok` days (608 of 612 parsed, 2023-04-14 → 2025-01-11).
 
 ## 1. Seasonality
 

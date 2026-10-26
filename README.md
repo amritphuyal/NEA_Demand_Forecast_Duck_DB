@@ -39,7 +39,7 @@ FROM lake.gold.daily_features LIMIT 5;
 | `data/lake/` | DuckLake catalog + Parquet files (gitignored) |
 | `docs/blueprint.md` | Mission, architecture, roadmap, model strategy |
 | `docs/architecture.md` | Diagrams: whole system, what runs when, one ingest step, how a forecast is generated |
-| `docs/deploy.md` | Run the site locally, deploy to Cloudflare, first-publish steps |
+| `docs/deploy.md` | Run the site locally, deploy to Cloudflare, 3 pm daily cron + Cronitor, first-publish steps |
 | `docs/flow.md` | End-to-end flow, every command and source, incremental rules, cron |
 | `docs/lake.md` | Every lake table, how to query it, example queries |
 | `site/` | Website (Observable Framework + DuckDB-WASM + Leaflet), deployed to Cloudflare Pages: `docs/site.md` |

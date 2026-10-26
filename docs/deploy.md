@@ -23,6 +23,35 @@ Run from the repository root.
 - First time on a new machine: `cd site && npm install`.
 - `site/src/data/` (the Parquet snapshot) is not in git; it is rebuilt by `uv run nea export`, so run `uv run nea export` before `npm run dev` / `npm run build` (`npm run deploy` does it for you). Local databases, caches and logs (`*.sqlite`, `.wrangler/`, `.observablehq/cache/`, `*.log`) are ignored for the same reason: they change every run.
 
+## Daily schedule (cron + Cronitor)
+
+The daily routine runs on its own at **15:00 Nepal time** from the laptop's user crontab (`crontab -l` to see it, `crontab -e` to change it):
+
+```cron
+PATH=/home/fm-pc-lt-314/.local/bin:/usr/local/bin:/usr/bin:/bin
+DISPLAY=:0
+WAYLAND_DISPLAY=wayland-0
+XDG_RUNTIME_DIR=/run/user/1000
+DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+
+0 15 * * * cronitor exec nea-daily-deploy "cd /home/fm-pc-lt-314/All_Repo/NEA_Demand_Forecast_Duck_DB && uv run nea ingest all && uv run nea forecast && cd site && npm run deploy" >> /home/fm-pc-lt-314/nea-deploy.log 2>&1
+```
+
+- **Why the variables at the top:** cron starts with an almost empty environment. `PATH` lets it find `uv`, `npm` and `cronitor`; the display variables let the NDOR fetcher open its headed Chrome on the desktop session.
+- **Each step needs the previous one:** if ingest fails, forecast and deploy do not run, and the site keeps the last good data.
+- **Output** goes to `~/nea-deploy.log`.
+- **Needs:** laptop on and the user logged in to the desktop at 15:00. A missed run is not caught up later; the next one is the following day.
+
+**Cronitor** tracks every run. `cronitor exec nea-daily-deploy …` reports start, finish, exit code and output to the monitor `nea-daily-deploy` (schedule `0 15 * * *`, timezone `Asia/Kathmandu`, 10 min grace). It alerts when a run fails, or when no run starts by 15:10. The CLI's API key is in `/etc/cronitor/cronitor.json`; history is on the Cronitor dashboard.
+
+Run it by hand (real ingest and deploy, also reported to Cronitor):
+
+```bash
+cronitor exec nea-daily-deploy "cd ~/All_Repo/NEA_Demand_Forecast_Duck_DB && uv run nea ingest all && uv run nea forecast && cd site && npm run deploy"
+```
+
+To change the time, edit the cron line **and** the monitor's schedule in Cronitor, or Cronitor will report runs as late or missing.
+
 ## First publish (2026-10-26): the steps actually followed
 
 1. **Install the site's tools:** `cd site && npm install`.
@@ -56,4 +85,6 @@ Run from the repository root.
 | Project missing from the dashboard | reload the list; check with `npx wrangler@4.152.0 pages project list` |
 | Custom domain stuck on *Pending* for more than 30 min | Cloudflare → `amritphuyal.com.np` → **DNS**: delete any old `nea-demand` record, then add the domain again from the Pages screen |
 | Site shows old numbers | run `uv run nea export` before deploying; hard-reload the browser (`Ctrl+Shift+R`) |
+| Cronitor alert: run missing | laptop was off, asleep or logged out at 15:00; run the routine by hand |
+| Cronitor alert: run failed | read the end of `~/nea-deploy.log` (or the run output in Cronitor) for the step that failed |
 | A chart or SQL query says it can't load DuckDB | DuckDB-WASM comes from cdn.jsdelivr.net; check that the network or browser isn't blocking it |

@@ -38,11 +38,35 @@ async function connect() {
   await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
   URL.revokeObjectURL(url);
   const c = await db.connect();
-  for (const [name, file] of Object.entries(FILES)) {
-    await db.registerFileURL(`${name}.parquet`, new URL(file.href, location.href).href, duckdb.DuckDBDataProtocol.HTTP, false);
+  const store = await openStore();
+  await Promise.all(Object.entries(FILES).map(async ([name, file]) => {
+    await db.registerFileBuffer(`${name}.parquet`, new Uint8Array(await cached(store, new URL(file.href, location.href).href)));
     await c.query(`CREATE VIEW ${name} AS SELECT * FROM '${name}.parquet'`);
-  }
+  }));
   return c;
+}
+
+// Browser-side cache for the snapshot (~0.8 MB): file names carry a content hash, so a cached file never goes
+// stale; a new export brings new names. Old entries are dropped. Falls back to plain fetch where Cache Storage
+// is unavailable (private mode, non-https).
+const STORE = "nea-snapshot";
+async function openStore() {
+  try {
+    const store = await caches.open(STORE);
+    const keep = new Set(Object.values(FILES).map((f) => new URL(f.href, location.href).href));
+    for (const req of await store.keys()) if (!keep.has(req.url)) store.delete(req);
+    return store;
+  } catch {
+    return null;
+  }
+}
+async function cached(store, url) {
+  const hit = await store?.match(url);
+  if (hit) return hit.arrayBuffer();
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`${res.status} loading ${url}`);
+  store?.put(url, res.clone()).catch(() => {});
+  return res.arrayBuffer();
 }
 
 // Plain JS rows: BIGINT -> Number, DATE/TIMESTAMP -> Date (so Plot and Inputs.table read them directly)

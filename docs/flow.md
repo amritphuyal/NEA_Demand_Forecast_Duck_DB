@@ -34,7 +34,7 @@ Every command writes a time-stamped log to `data/logs/<YYYYmmdd-HHMMSS>-<command
 | `nea sql "<query>"` | read-only SQL on the lake | screen |
 | `nea export` | Parquet snapshot of the lake for the website (+ points, selection, manifest) | `site/src/data/` |
 | `nea search <regex>` | search the downloaded NEA report Markdown | screen |
-| `nea maintain` | merge small Parquet files, expire snapshots > 30 days | — |
+| `nea maintain` | flush inlined rows to Parquet, merge small files, expire snapshots > 30 days, delete old files | — |
 
 ## Sources (`nea ingest …`), in run order
 
@@ -74,8 +74,9 @@ The `+outage` import forecast drops automatically.
 NEA fetches use headless real Chrome (automation flags masked). If F5 starts blocking, set `NEA_HEADED=1` (needs the `DISPLAY` of the logged-in session).
 
 ```cron
-0 */3 * * * cd /path/to/repo && uv run nea ingest all >> data/ingest.log 2>&1
-30 6 * * *  cd /path/to/repo && uv run nea forecast   >> data/ingest.log 2>&1
-0 4 * * 0   cd /path/to/repo && uv run nea maintain   >> data/ingest.log 2>&1
+0 15 * * * cronitor exec nea-daily-deploy "cd /path/to/repo && uv run nea ingest all && uv run nea forecast && cd site && npm run deploy" >> ~/nea-deploy.log 2>&1
+0 17 * * 0 cd /path/to/repo && uv run nea maintain >> ~/nea-deploy.log 2>&1
 # after each winter (May) or when models change: uv run nea model
 ```
+
+The full crontab (environment variables, Cronitor) is in [deploy.md](deploy.md#daily-schedule-cron--cronitor).

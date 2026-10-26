@@ -35,6 +35,8 @@ XDG_RUNTIME_DIR=/run/user/1000
 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
 
 0 15 * * * cronitor exec nea-daily-deploy "cd /home/fm-pc-lt-314/All_Repo/NEA_Demand_Forecast_Duck_DB && uv run nea ingest all && uv run nea forecast && cd site && npm run deploy" >> /home/fm-pc-lt-314/nea-deploy.log 2>&1
+# lake maintenance, Sundays, after the daily run
+0 17 * * 0 cd /home/fm-pc-lt-314/All_Repo/NEA_Demand_Forecast_Duck_DB && uv run nea maintain >> /home/fm-pc-lt-314/nea-deploy.log 2>&1
 ```
 
 - **Why the variables at the top:** cron starts with an almost empty environment. `PATH` lets it find `uv`, `npm` and `cronitor`; the display variables let the NDOR fetcher open its headed Chrome on the desktop session.

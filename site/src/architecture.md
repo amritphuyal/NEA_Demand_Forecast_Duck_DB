@@ -66,12 +66,12 @@ flowchart TB
 ```mermaid
 flowchart TB
   cron(["cron on the laptop"])
-  cron -->|every 3 h| ing["nea ingest all<br>14 sources in order, only new data"]
-  cron -->|daily 06:30| fc["nea forecast<br>writes run live-YYYYmmdd"]
-  cron -->|Sunday 04:00| mt["nea maintain<br>merge small files, expire snapshots > 30 days"]
+  cron -->|daily 15:00| ing["nea ingest all<br>14 sources in order, only new data"]
+  ing --> fc["nea forecast<br>writes run live-YYYYmmdd"]
+  fc --> pub["npm run deploy<br>nea export, build, upload"]
+  cron -->|Sunday 17:00| mt["nea maintain<br>flush inlined rows, merge small files,<br>expire snapshots > 30 days"]
   you(["you, by hand"])
   you -->|each May, or when models change| mdl["nea model<br>re-test and re-select models"]
-  you -->|to publish| pub["nea export, then npm run deploy"]
   ing & fc & mt & mdl & pub --> logs[("data/logs/TIME-COMMAND.log<br>▶ start · ✔ done · ✖ FAILED per step")]
 ```
 

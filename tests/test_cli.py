@@ -22,6 +22,8 @@ def test_ingest_continues_after_failure(monkeypatch, tmp_path, capsys):
     def boom(con): raise RuntimeError("site down")
     monkeypatch.setattr(cli, "INGESTERS", {"a": boom, "b": lambda con: 3})
     monkeypatch.setattr(cli, "connect", lambda: type("Con", (), {"close": lambda self: None})())
-    assert cli.main(["ingest", "all"]) == 1
+    assert cli.main(["ingest", "all"]) == 0  # partial failure: logged, chain continues
     out = capsys.readouterr().out
-    assert "a: FAILED" in out and "site down" in out and "b: 3 rows" in out
+    assert "a: FAILED" in out and "site down" in out and "b: 3 rows" in out and "partial ingest: 1/2" in out
+    monkeypatch.setattr(cli, "INGESTERS", {"a": boom})
+    assert cli.main(["ingest", "all"]) == 1  # everything failed (e.g. offline): stop the chain

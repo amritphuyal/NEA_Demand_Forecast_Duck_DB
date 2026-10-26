@@ -93,7 +93,10 @@ def main(argv: list[str] | None = None) -> int:
                 failed.append(name)
         print(f"== ingest done in {time.time() - t0:.0f}s; failed: {failed or 'none'}", flush=True)
         con.close()  # unclosed connection makes duckdb print "nanobind: leaked" noise at exit
-        return 1 if failed else 0
+        # a dead source (e.g. DHM) is logged, not fatal: exit 1 only if nothing worked, so `&& nea forecast` still runs
+        if failed and len(failed) < len(names):
+            print(f"⚠ partial ingest: {len(names) - len(failed)}/{len(names)} sources ok; continuing", flush=True)
+        return 1 if len(failed) == len(names) else 0
     elif args.cmd == "search":
         reports.search(args.pattern)
     elif args.cmd == "eda":

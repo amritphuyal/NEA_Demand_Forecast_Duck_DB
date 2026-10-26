@@ -63,7 +63,7 @@ def main(argv: list[str] | None = None) -> int:
     ing = sub.add_parser("ingest", help="fetch new data from sources")
     ing.add_argument("sources", nargs="+", help="source names or 'all'")
     sub.add_parser("status", help="row counts and date ranges per table")
-    sub.add_parser("maintain", help="compact lake files, expire old snapshots")
+    sub.add_parser("maintain", help="flush inlined rows, compact lake files, expire old snapshots")
     sub.add_parser("eda", help="exploratory analysis: numbers + charts to docs/eda/")
     sub.add_parser("model", help="backtest forecasting models -> ml.backtest_metrics, docs/model/")
     sub.add_parser("forecast", help="live forecasts (winter outlook; daily when enough recent data) -> ml.forecasts")
@@ -126,9 +126,10 @@ def main(argv: list[str] | None = None) -> int:
         con.sql(args.query).show(max_rows=100, max_width=250)
         con.close()
     elif args.cmd == "status":
-        status(connect())
+        status(connect(read_only=True))
     elif args.cmd == "maintain":
         con = connect()
+        con.execute("CALL ducklake_flush_inlined_data('lake')")  # small writes sit in the catalog until flushed
         con.execute("CALL ducklake_merge_adjacent_files('lake')")
         con.execute("CALL ducklake_expire_snapshots('lake', older_than => now() - INTERVAL 30 DAY)")
         con.execute("CALL ducklake_cleanup_old_files('lake', cleanup_all => true)")

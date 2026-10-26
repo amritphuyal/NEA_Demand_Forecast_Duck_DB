@@ -126,3 +126,32 @@ main form button {
   cursor: pointer;
 }
 @media (prefers-color-scheme: dark) { main form button { color: #0f1a26; } }
+
+/* data tables (Inputs.table): show full values. Columns fit their content, long text wraps,
+   wide tables scroll sideways, tall ones scroll down (header stays pinned) */
+main form[class*="-table"] { overflow: auto; }
+main form[class*="-table"] table { table-layout: auto !important; width: max-content; min-width: 100%; }
+main form[class*="-table"] td, main form[class*="-table"] th { overflow: visible; text-overflow: clip; }
+main form[class*="-table"] td { white-space: normal; max-width: 32em; overflow-wrap: break-word; vertical-align: top; }
+main form[class*="-table"] thead th { white-space: nowrap; background: var(--theme-background); }
+
+/* enlarge / fullscreen for charts and the map (button added by the script in observablehq.config.js) */
+.nea-mirror, .observablehq--block:has(svg[class^="plot-"], .leaflet-container) { position: relative; }
+.nea-zoom {
+  position: absolute; top: 0; right: 0; z-index: 500;
+  width: 34px; height: 34px; padding: 0;
+  border: 1px solid var(--nea-line); border-radius: 8px;
+  background: var(--theme-background); color: var(--theme-foreground-muted);
+  font-size: 18px; line-height: 1; cursor: pointer; opacity: 0.6;
+}
+.nea-zoom:hover, .nea-zoom:focus-visible { opacity: 1; color: var(--theme-foreground); }
+@media (hover: none) { .nea-zoom { opacity: 0.9; } }
+.nea-zoomed {
+  position: fixed !important; inset: 0; z-index: 1000; margin: 0 !important; max-width: none !important;
+  padding: 3.25rem max(1rem, 3vw) 1rem; background: var(--theme-background); overflow: auto;
+}
+.nea-zoomed > .nea-zoom { position: fixed; top: 10px; right: 12px; opacity: 1; }
+.nea-zoomed svg[class^="plot-"] { width: 100% !important; height: auto !important; max-width: none !important; max-height: calc(100vh - 6.5rem); }
+.nea-zoomed .card { flex: 1 1 420px; }
+.nea-zoomed .leaflet-container { height: calc(100vh - 4.5rem) !important; }
+html.nea-noscroll { overflow: hidden; }

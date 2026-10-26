@@ -21,3 +21,6 @@ data/
 *.log
 .wrangler/
 .observablehq/cache/
+
+# Application drafts (kept local, never published)
+irena/

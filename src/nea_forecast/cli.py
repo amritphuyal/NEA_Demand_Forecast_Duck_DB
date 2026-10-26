@@ -5,7 +5,7 @@ from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 
-from nea_forecast import (calendar, cerc, dhm, eda, export, india_trade, model, ndor, nea_docs, nea_widget, ocr, open_meteo, outages,
+from nea_forecast import (calendar, cerc, dhm, eda, export, findings, india_trade, model, ndor, nea_docs, nea_widget, ocr, open_meteo, outages,
                           reports, world_bank)
 from nea_forecast.lake import connect
 
@@ -67,6 +67,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("eda", help="exploratory analysis: numbers + charts to docs/eda/")
     sub.add_parser("model", help="backtest forecasting models -> ml.backtest_metrics, docs/model/")
     sub.add_parser("forecast", help="live forecasts (winter outlook; daily when enough recent data) -> ml.forecasts")
+    sub.add_parser("findings", help="headline findings: queries/*.sql -> assets/findings.json + 1920x1080 charts")
     sub.add_parser("export", help="lake -> Parquet snapshot for the website (site/src/data/)")
     q = sub.add_parser("sql", help="run a read-only SQL query on the lake, e.g. nea sql \"FROM ml.forecasts LIMIT 5\"")
     q.add_argument("query")
@@ -111,6 +112,10 @@ def main(argv: list[str] | None = None) -> int:
     elif args.cmd == "forecast":
         con = connect()
         model.forecast(con)
+        con.close()
+    elif args.cmd == "findings":
+        con = connect(read_only=True)
+        findings.run(con)
         con.close()
     elif args.cmd == "export":
         con = connect(read_only=True)
